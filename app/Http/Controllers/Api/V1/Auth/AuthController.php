@@ -3,45 +3,135 @@
 namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Controllers\Api\V1\BaseApiController;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Requests\Api\V1\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Api\V1\Auth\LoginRequest;
+use App\Http\Requests\Api\V1\Auth\ResetPasswordRequest;
 use App\Models\User;
+use App\Resources\Api\V1\UserResource;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 
 class AuthController extends BaseApiController
 {
-    // POST /api/v1/auth/login
-    public function login(Request $request): JsonResponse
+    /**
+     * Authenticate a user and return a Sanctum token.
+     */
+    public function login(LoginRequest $request): JsonResponse
     {
-        // TODO: implement login logic
-        return $this->error('Not implemented yet', 501);
+        if (!Auth::attempt($request->only('email', 'password'))) {
+            return $this->error('Invalid credentials', 401);
+        }
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        if (!$user->is_active) {
+            Auth::logout();
+
+            return $this->error('Account disabled. Contact admin.', 403);
+        }
+
+        $user->update(['last_login_at' => now()]);
+
+        $token = $user->createToken('parishhub-app')->plainTextToken;
+
+        $user->load('roles', 'permissions');
+
+        return $this->success([
+            'token' => $token,
+            'user' => new UserResource($user),
+        ], 'Login successful');
     }
 
-    // POST /api/v1/auth/logout
+    /**
+     * Revoke the current access token.
+     */
     public function logout(Request $request): JsonResponse
     {
-        // TODO: implement logout — revoke current token
-        return $this->error('Not implemented yet', 501);
+        $request->user()->currentAccessToken()->delete();
+
+        return $this->success(null, 'Logged out successfully');
     }
 
-    // GET /api/v1/auth/me
+    /**
+     * Return the authenticated user with roles and permissions.
+     */
     public function me(Request $request): JsonResponse
     {
-        // TODO: return authenticated user with roles and permissions
-        return $this->error('Not implemented yet', 501);
+        /** @var User $user */
+        $user = $request->user()->load('roles', 'permissions');
+
+        return $this->success(new UserResource($user));
     }
 
-    // POST /api/v1/auth/forgot-password
-    public function forgotPassword(Request $request): JsonResponse
+    /**
+     * Change the authenticated user's password.
+     */
+    public function changePassword(Request $request): JsonResponse
     {
-        // TODO: send password reset link
-        return $this->error('Not implemented yet', 501);
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return $this->error('Current password is incorrect', 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+            'must_change_password' => false,
+        ]);
+
+        $user->tokens()->delete();
+
+        $token = $user->createToken('parishhub-app')->plainTextToken;
+
+        $user->load('roles', 'permissions');
+
+        return $this->success([
+            'token' => $token,
+            'user' => new UserResource($user),
+        ], 'Password changed successfully');
     }
 
-    // POST /api/v1/auth/reset-password
-    public function resetPassword(Request $request): JsonResponse
+    /**
+     * Send a password reset link to the given email.
+     */
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        // TODO: validate token and reset password
-        return $this->error('Not implemented yet', 501);
+        Password::sendResetLink($request->only('email'));
+
+        return $this->success(null, 'If this email exists, a reset link has been sent.');
+    }
+
+    /**
+     * Reset the user's password using a valid token.
+     */
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'must_change_password' => false,
+                ])->save();
+
+                $user->tokens()->delete();
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return $this->error(__($status), 422);
+        }
+
+        return $this->success(null, __($status));
     }
 }

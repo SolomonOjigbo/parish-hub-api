@@ -29,7 +29,11 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::get('me',      [AuthController::class, 'me']);
-            Route::put('me/password', fn() => response()->json(['message' => 'TODO']));
+            Route::put('me/password', [AuthController::class, 'changePassword']);
+
+            Route::middleware('password.changed')->group(function () {
+                // All other auth:sanctum routes go here
+            });
         });
     });
 

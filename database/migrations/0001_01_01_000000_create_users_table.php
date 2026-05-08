@@ -18,7 +18,16 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
+            $table->boolean('is_active')->default(true);
+            $table->boolean('must_change_password')->default(false);
+            $table->timestamp('last_login_at')->nullable();
             $table->timestamps();
+
+            if (Schema::hasTable('members')) {
+                $table->foreignId('member_id')->nullable()->constrained('members')->nullOnDelete();
+            } else {
+                $table->unsignedBigInteger('member_id')->nullable();
+            }
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
