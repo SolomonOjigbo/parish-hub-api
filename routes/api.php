@@ -3,6 +3,36 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Members\MemberController;
+use App\Http\Controllers\Api\V1\Families\FamilyController;
+use App\Http\Controllers\Api\V1\Societies\SocietyController;
+use App\Http\Controllers\Api\V1\Societies\SocietyMemberController;
+use App\Http\Controllers\Api\V1\Societies\SocietyMeetingController;
+use App\Http\Controllers\Api\V1\Societies\SocietyDuesController;
+use App\Http\Controllers\Api\V1\Committees\CommitteeController;
+use App\Http\Controllers\Api\V1\Committees\CommitteeActionItemController;
+use App\Http\Controllers\Api\V1\Events\EventController;
+use App\Http\Controllers\Api\V1\Events\EventRegistrationController;
+use App\Http\Controllers\Api\V1\Events\EventAttendanceController;
+use App\Http\Controllers\Api\V1\AttendanceController;
+use App\Http\Controllers\Api\V1\SacramentController;
+use App\Http\Controllers\Api\V1\ZoneController;
+use App\Http\Controllers\Api\V1\Finance\OfferingController;
+use App\Http\Controllers\Api\V1\Finance\TitheController;
+use App\Http\Controllers\Api\V1\Finance\PledgeController;
+use App\Http\Controllers\Api\V1\Finance\DonationController;
+use App\Http\Controllers\Api\V1\Reports\ReportController;
+use App\Http\Controllers\Api\V1\Communications\EmailController;
+use App\Http\Controllers\Api\V1\Communications\SmsController;
+use App\Http\Controllers\Api\V1\Communications\CommunicationLogController;
+use App\Http\Controllers\Api\V1\Communications\BulletinController;
+use App\Http\Controllers\Api\V1\Staff\StaffController;
+use App\Http\Controllers\Api\V1\Staff\RoleController;
+use App\Http\Controllers\Api\V1\Staff\UserController;
+use App\Http\Controllers\Api\V1\Settings\SettingController;
+use App\Http\Controllers\Api\V1\AuditLogController;
+use App\Http\Controllers\Api\V1\SyncController;
+use App\Http\Controllers\Api\V1\PortalController;
+use App\Http\Controllers\Api\V1\PublicController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,9 +45,9 @@ Route::prefix('v1')->group(function () {
 
     // ── PUBLIC ROUTES (no auth required) ──────────────────────────────
     Route::prefix('public')->group(function () {
-        Route::post('register', fn() => response()->json(['message' => 'TODO']));
-        Route::post('visitor',  fn() => response()->json(['message' => 'TODO']));
-        Route::get('events',    fn() => response()->json(['message' => 'TODO']));
+        Route::post('register', [PublicController::class, 'register']);
+        Route::post('visitor',  [PublicController::class, 'visitor']);
+        Route::get('events',    [PublicController::class, 'events']);
     });
 
     // ── AUTH ──────────────────────────────────────────────────────────
@@ -40,156 +70,176 @@ Route::prefix('v1')->group(function () {
     // ── ALL PROTECTED ROUTES ──────────────────────────────────────────
     Route::middleware('auth:sanctum')->group(function () {
 
-        // Members
-        Route::apiResource('members', MemberController::class);
-        Route::post('members/{id}/photo',            fn() => response()->json(['message' => 'TODO']));
+        // Members — static routes BEFORE apiResource so /members/export
+        // is not captured by /members/{id}.
+        Route::get('members/export',                 [MemberController::class, 'export']);
+        Route::post('members/{id}/photo',            [MemberController::class, 'uploadPhoto']);
         Route::get('members/{id}/societies',         fn() => response()->json(['message' => 'TODO']));
         Route::get('members/{id}/attendance',        fn() => response()->json(['message' => 'TODO']));
-        Route::get('members/{id}/giving',            fn() => response()->json(['message' => 'TODO']));
+        Route::get('members/{id}/giving',            [MemberController::class, 'giving']);
         Route::get('members/{id}/communications',    fn() => response()->json(['message' => 'TODO']));
-        Route::get('members/{id}/audit-log',         fn() => response()->json(['message' => 'TODO']));
-        Route::get('members/export',                 fn() => response()->json(['message' => 'TODO']));
+        Route::get('members/{id}/audit-log',         [MemberController::class, 'auditLog']);
         Route::post('members/{id}/sacraments',       fn() => response()->json(['message' => 'TODO']));
         Route::put('members/{id}/sacraments/{sid}',  fn() => response()->json(['message' => 'TODO']));
+        Route::apiResource('members', MemberController::class);
 
         // Families
-        Route::apiResource('families', \App\Http\Controllers\Controller::class);
+        Route::get('families/{id}/giving',                  [FamilyController::class, 'giving']);
+        Route::post('families/{id}/members',                [FamilyController::class, 'assignMember']);
+        Route::delete('families/{id}/members/{memberId}',   [FamilyController::class, 'removeMember']);
+        Route::apiResource('families', FamilyController::class);
 
         // Societies
         Route::prefix('societies')->group(function () {
-            Route::get('/',                                    fn() => response()->json(['message' => 'TODO']));
-            Route::post('/',                                   fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}',                                 fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}',                                 fn() => response()->json(['message' => 'TODO']));
-            Route::delete('{id}',                              fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}/members',                         fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/members',                        fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}/members/{mid}',                   fn() => response()->json(['message' => 'TODO']));
-            Route::delete('{id}/members/{mid}',                fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}/meetings',                        fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/meetings',                       fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}/meetings/{mid}',                  fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/meetings/{mid}/minutes',         fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}/dues',                            fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/dues',                           fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}/dues/matrix',                     fn() => response()->json(['message' => 'TODO']));
+            Route::get('/',                            [SocietyController::class, 'index']);
+            Route::post('/',                           [SocietyController::class, 'store']);
+            Route::get('{id}',                         [SocietyController::class, 'show'])->whereNumber('id');
+            Route::put('{id}',                         [SocietyController::class, 'update'])->whereNumber('id');
+            Route::delete('{id}',                      [SocietyController::class, 'destroy'])->whereNumber('id');
+
+            Route::get('{id}/members',                 [SocietyMemberController::class, 'index']);
+            Route::post('{id}/members',                [SocietyMemberController::class, 'store']);
+            Route::put('{id}/members/{mid}',           [SocietyMemberController::class, 'update']);
+            Route::delete('{id}/members/{mid}',        [SocietyMemberController::class, 'destroy']);
+
+            Route::get('{id}/meetings',                [SocietyMeetingController::class, 'index']);
+            Route::post('{id}/meetings',               [SocietyMeetingController::class, 'store']);
+            Route::put('{id}/meetings/{mid}',          [SocietyMeetingController::class, 'update']);
+            Route::post('{id}/meetings/{mid}/minutes', [SocietyMeetingController::class, 'uploadMinutes']);
+
+            Route::get('{id}/dues/matrix',             [SocietyDuesController::class, 'matrix']);
+            Route::get('{id}/dues',                    [SocietyDuesController::class, 'index']);
+            Route::post('{id}/dues',                   [SocietyDuesController::class, 'store']);
         });
 
         // Events
         Route::prefix('events')->group(function () {
-            Route::get('/',                            fn() => response()->json(['message' => 'TODO']));
-            Route::post('/',                           fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}',                         fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}',                         fn() => response()->json(['message' => 'TODO']));
-            Route::delete('{id}',                      fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/register',               fn() => response()->json(['message' => 'TODO']));
-            Route::delete('{id}/register',             fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}/registrations',           fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/attendance',             fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}/attendance',              fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/reminders/send',         fn() => response()->json(['message' => 'TODO']));
+            Route::get('/',                    [EventController::class, 'index']);
+            Route::post('/',                   [EventController::class, 'store']);
+            Route::get('{id}',                 [EventController::class, 'show'])->whereNumber('id');
+            Route::put('{id}',                 [EventController::class, 'update'])->whereNumber('id');
+            Route::delete('{id}',              [EventController::class, 'destroy'])->whereNumber('id');
+
+            Route::post('{id}/register',       [EventRegistrationController::class, 'register']);
+            Route::delete('{id}/register',     [EventRegistrationController::class, 'cancel']);
+            Route::get('{id}/registrations',   [EventRegistrationController::class, 'index']);
+
+            Route::post('{id}/attendance',     [EventAttendanceController::class, 'mark']);
+            Route::get('{id}/attendance',      [EventAttendanceController::class, 'index']);
+
+            Route::post('{id}/reminders/send', fn() => response()->json(['message' => 'TODO']));
         });
 
         // Finance
         Route::prefix('offerings')->group(function () {
-            Route::get('/',         fn() => response()->json(['message' => 'TODO']));
-            Route::post('/',        fn() => response()->json(['message' => 'TODO']));
-            Route::get('summary',   fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}',      fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}',      fn() => response()->json(['message' => 'TODO']));
-            Route::delete('{id}',   fn() => response()->json(['message' => 'TODO']));
-            Route::post('import',   fn() => response()->json(['message' => 'TODO']));
+            Route::get('/',         [OfferingController::class, 'index']);
+            Route::post('/',        [OfferingController::class, 'store']);
+            Route::get('summary',   [OfferingController::class, 'summary']);
+            Route::get('{id}',      [OfferingController::class, 'show'])->whereNumber('id');
+            Route::put('{id}',      [OfferingController::class, 'update'])->whereNumber('id');
+            Route::delete('{id}',   [OfferingController::class, 'destroy'])->whereNumber('id');
+            Route::post('import',   [OfferingController::class, 'import']);
         });
 
         Route::prefix('tithes')->group(function () {
-            Route::get('/',                    fn() => response()->json(['message' => 'TODO']));
-            Route::post('/',                   fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}',                 fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}',                 fn() => response()->json(['message' => 'TODO']));
-            Route::delete('{id}',              fn() => response()->json(['message' => 'TODO']));
-            Route::get('member/{memberId}',    fn() => response()->json(['message' => 'TODO']));
+            Route::get('/',                    [TitheController::class, 'index']);
+            Route::post('/',                   [TitheController::class, 'store']);
+            Route::get('{id}',                 [TitheController::class, 'show'])->whereNumber('id');
+            Route::put('{id}',                 [TitheController::class, 'update'])->whereNumber('id');
+            Route::delete('{id}',              [TitheController::class, 'destroy'])->whereNumber('id');
+            Route::get('member/{memberId}',    [TitheController::class, 'member']);
         });
 
         Route::prefix('pledges')->group(function () {
-            Route::get('/',                    fn() => response()->json(['message' => 'TODO']));
-            Route::post('/',                   fn() => response()->json(['message' => 'TODO']));
-            Route::get('overdue',              fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}',                 fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}',                 fn() => response()->json(['message' => 'TODO']));
-            Route::delete('{id}',              fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/payments',       fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}/payments',        fn() => response()->json(['message' => 'TODO']));
+            Route::get('/',                    [PledgeController::class, 'index']);
+            Route::post('/',                   [PledgeController::class, 'store']);
+            Route::get('overdue',              [PledgeController::class, 'overdue']);
+            Route::get('{id}',                 [PledgeController::class, 'show'])->whereNumber('id');
+            Route::put('{id}',                 [PledgeController::class, 'update'])->whereNumber('id');
+            Route::delete('{id}',              [PledgeController::class, 'destroy'])->whereNumber('id');
+            Route::post('{id}/payments',       [PledgeController::class, 'addPayment']);
+            Route::get('{id}/payments',        [PledgeController::class, 'payments']);
         });
 
         Route::prefix('donations')->group(function () {
-            Route::get('/',                        fn() => response()->json(['message' => 'TODO']));
-            Route::post('/',                       fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}',                     fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}',                     fn() => response()->json(['message' => 'TODO']));
-            Route::delete('{id}',                  fn() => response()->json(['message' => 'TODO']));
-            Route::get('donor/{memberId}',         fn() => response()->json(['message' => 'TODO']));
+            Route::get('/',                        [DonationController::class, 'index']);
+            Route::post('/',                       [DonationController::class, 'store']);
+            Route::get('{id}',                     [DonationController::class, 'show'])->whereNumber('id');
+            Route::put('{id}',                     [DonationController::class, 'update'])->whereNumber('id');
+            Route::delete('{id}',                  [DonationController::class, 'destroy'])->whereNumber('id');
+            Route::get('donor/{memberId}',         [DonationController::class, 'donor']);
         });
 
         // Reports
-        Route::get('reports/financial', fn() => response()->json(['message' => 'TODO']));
+        Route::get('reports/financial', [ReportController::class, 'financial']);
 
         // Communications
         Route::prefix('communications')->group(function () {
-            Route::post('email',    fn() => response()->json(['message' => 'TODO']));
-            Route::post('sms',      fn() => response()->json(['message' => 'TODO']));
-            Route::get('logs',      fn() => response()->json(['message' => 'TODO']));
-            Route::get('logs/{id}', fn() => response()->json(['message' => 'TODO']));
+            Route::post('email',    [EmailController::class, 'send']);
+            Route::post('sms',      [SmsController::class, 'send']);
+            Route::get('logs',      [CommunicationLogController::class, 'index']);
+            Route::get('logs/{id}', [CommunicationLogController::class, 'show']);
         });
 
         Route::prefix('bulletins')->group(function () {
-            Route::get('/',          fn() => response()->json(['message' => 'TODO']));
-            Route::post('/',         fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}',       fn() => response()->json(['message' => 'TODO']));
-            Route::put('{id}',       fn() => response()->json(['message' => 'TODO']));
-            Route::get('{id}/preview', fn() => response()->json(['message' => 'TODO']));
-            Route::post('{id}/export', fn() => response()->json(['message' => 'TODO']));
+            Route::get('/',            [BulletinController::class, 'index']);
+            Route::post('/',           [BulletinController::class, 'store']);
+            Route::get('{id}',         [BulletinController::class, 'show'])->whereNumber('id');
+            Route::put('{id}',         [BulletinController::class, 'update'])->whereNumber('id');
+            Route::get('{id}/preview', [BulletinController::class, 'preview']);
+            Route::post('{id}/export', [BulletinController::class, 'export']);
         });
 
         // Staff & Roles
-        Route::apiResource('staff', \App\Http\Controllers\Controller::class);
-        Route::get('roles',              fn() => response()->json(['message' => 'TODO']));
-        Route::post('roles',             fn() => response()->json(['message' => 'TODO']));
-        Route::put('roles/{id}',         fn() => response()->json(['message' => 'TODO']));
-        Route::get('permissions',        fn() => response()->json(['message' => 'TODO']));
-        Route::post('users/{id}/roles',  fn() => response()->json(['message' => 'TODO']));
+        Route::apiResource('staff', StaffController::class);
+        Route::get('roles',              [RoleController::class, 'index']);
+        Route::post('roles',             [RoleController::class, 'store']);
+        Route::put('roles/{id}',         [RoleController::class, 'update']);
+        Route::get('permissions',        [RoleController::class, 'permissions']);
+        Route::post('users',             [UserController::class, 'store']);
+        Route::put('users/{id}',         [UserController::class, 'update']);
+        Route::delete('users/{id}',      [UserController::class, 'destroy']);
+        Route::post('users/{id}/roles',  [UserController::class, 'assignRole']);
+        Route::post('users/{id}/reset-password', [UserController::class, 'resetPassword']);
 
         // Settings & Audit
-        Route::get('settings',              fn() => response()->json(['message' => 'TODO']));
-        Route::put('settings',              fn() => response()->json(['message' => 'TODO']));
-        Route::post('settings/test-email',  fn() => response()->json(['message' => 'TODO']));
-        Route::post('settings/test-sms',    fn() => response()->json(['message' => 'TODO']));
-        Route::post('settings/backup',      fn() => response()->json(['message' => 'TODO']));
-        Route::get('settings/backups',      fn() => response()->json(['message' => 'TODO']));
-        Route::get('audit-logs',            fn() => response()->json(['message' => 'TODO']));
+        Route::get('settings',              [SettingController::class, 'index']);
+        Route::put('settings',              [SettingController::class, 'update']);
+        Route::post('settings/test-email',  [SettingController::class, 'testEmail']);
+        Route::post('settings/test-sms',    [SettingController::class, 'testSms']);
+        Route::post('settings/backup',      [SettingController::class, 'backup']);
+        Route::get('settings/backups',      [SettingController::class, 'backups']);
+        Route::get('audit-logs',            [AuditLogController::class, 'index']);
 
         // Zones
-        Route::apiResource('zones', \App\Http\Controllers\Controller::class);
-        Route::get('attendance',  fn() => response()->json(['message' => 'TODO']));
-        Route::get('sacraments',  fn() => response()->json(['message' => 'TODO']));
-        Route::get('committees',  fn() => response()->json(['message' => 'TODO']));
+        Route::apiResource('zones', ZoneController::class);
+        Route::get('attendance',  [AttendanceController::class, 'index']);
+        Route::get('sacraments',  [SacramentController::class, 'index']);
+
+        // Committees
+        Route::get('committees/{id}/action-items',                  [CommitteeActionItemController::class, 'index']);
+        Route::post('committees/{id}/action-items',                 [CommitteeActionItemController::class, 'store']);
+        Route::put('committees/{id}/action-items/{itemId}',         [CommitteeActionItemController::class, 'update']);
+        Route::delete('committees/{id}/action-items/{itemId}',      [CommitteeActionItemController::class, 'destroy']);
+        Route::apiResource('committees', CommitteeController::class);
 
         // Sync (for Electron desktop app)
         Route::prefix('sync')->group(function () {
-            Route::post('push',     fn() => response()->json(['message' => 'TODO']));
-            Route::post('pull',     fn() => response()->json(['message' => 'TODO']));
-            Route::get('status',    fn() => response()->json(['message' => 'TODO']));
-            Route::post('resolve',  fn() => response()->json(['message' => 'TODO']));
+            Route::post('push',     [SyncController::class, 'push']);
+            Route::post('pull',     [SyncController::class, 'pull']);
+            Route::get('status',    [SyncController::class, 'status']);
+            Route::post('resolve',  [SyncController::class, 'resolve']);
         });
 
         // Member Portal
         Route::prefix('portal')->group(function () {
-            Route::get('profile',          fn() => response()->json(['message' => 'TODO']));
-            Route::put('profile',          fn() => response()->json(['message' => 'TODO']));
-            Route::post('profile/photo',   fn() => response()->json(['message' => 'TODO']));
-            Route::get('giving',           fn() => response()->json(['message' => 'TODO']));
-            Route::get('events',           fn() => response()->json(['message' => 'TODO']));
-            Route::post('events/{id}/register', fn() => response()->json(['message' => 'TODO']));
-            Route::get('family',           fn() => response()->json(['message' => 'TODO']));
+            Route::get('profile',          [PortalController::class, 'profile']);
+            Route::put('profile',          [PortalController::class, 'updateProfile']);
+            Route::post('profile/photo',   [PortalController::class, 'uploadPhoto']);
+            Route::get('giving',           [PortalController::class, 'giving']);
+            Route::get('events',           [PortalController::class, 'events']);
+            Route::post('events/{id}/register', [PortalController::class, 'registerEvent']);
+            Route::get('family',           [PortalController::class, 'family']);
         });
 
     }); // end auth:sanctum
