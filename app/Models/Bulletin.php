@@ -9,6 +9,7 @@ class Bulletin extends Model
 {
     protected $fillable = [
         'sunday_date',
+        'title',
         'content',
         'generated_by',
         'published_at',
@@ -18,7 +19,6 @@ class Bulletin extends Model
     {
         return [
             'sunday_date' => 'date',
-            'content' => 'array',
             'published_at' => 'datetime',
         ];
     }
