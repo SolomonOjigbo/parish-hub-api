@@ -28,7 +28,8 @@ class FamilyController extends BaseApiController implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('permission:families.view',   only: ['index', 'show', 'giving']),
+            new Middleware('permission:families.view',   only: ['index', 'show']),
+            new Middleware('permission:finance.view',    only: ['giving']),
             new Middleware('permission:families.create', only: ['store']),
             new Middleware('permission:families.edit',   only: ['update', 'assignMember', 'removeMember']),
             new Middleware('permission:families.delete', only: ['destroy']),

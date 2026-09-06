@@ -34,8 +34,9 @@ class SendBulkEmailJob implements ShouldQueue
     public function handle(): void
     {
         $members = Member::whereIn('id', $this->memberIds)
-            ->where('is_active', true)
-            ->whereNotNull('email')
+            ->where('status', 'active')
+            ->with('contactDetail')
+            ->whereHas('contactDetail', fn($q) => $q->whereNotNull('email'))
             ->get();
 
         $sentCount = 0;
@@ -43,11 +44,17 @@ class SendBulkEmailJob implements ShouldQueue
         $errors = [];
 
         foreach ($members as $member) {
+            $email = $member->contactDetail?->email;
+
+            if (!$email) {
+                continue;
+            }
+
             try {
                 $personalizedMessage = str_replace('{first_name}', $member->first_name, $this->message);
 
-                Mail::raw($personalizedMessage, function ($message) use ($member) {
-                    $message->to($member->email)
+                Mail::raw($personalizedMessage, function ($message) use ($email) {
+                    $message->to($email)
                         ->subject($this->subject);
                 });
 
@@ -56,12 +63,12 @@ class SendBulkEmailJob implements ShouldQueue
                 $failedCount++;
                 $errors[] = [
                     'member_id' => $member->id,
-                    'email' => $member->email,
+                    'email' => $email,
                     'error' => $e->getMessage(),
                 ];
                 Log::error('Email sending failed', [
                     'member_id' => $member->id,
-                    'email' => $member->email,
+                    'email' => $email,
                     'error' => $e->getMessage(),
                 ]);
             }

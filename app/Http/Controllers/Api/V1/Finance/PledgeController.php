@@ -12,10 +12,25 @@ use App\Resources\Api\V1\PledgePaymentResource;
 use App\Resources\Api\V1\PledgeResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
-class PledgeController extends BaseApiController
+class PledgeController extends BaseApiController implements HasMiddleware
 {
+    /**
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:finance.view',   only: ['index', 'show', 'overdue', 'payments']),
+            new Middleware('permission:finance.create', only: ['store', 'addPayment']),
+            new Middleware('permission:finance.edit',   only: ['update']),
+            new Middleware('permission:finance.delete', only: ['destroy']),
+        ];
+    }
+
     /**
      * Display a listing of pledges.
      */

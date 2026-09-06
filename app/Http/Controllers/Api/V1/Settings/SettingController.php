@@ -34,6 +34,18 @@ class SettingController extends BaseApiController
     }
 
     /**
+     * Keys the API will persist — everything else is ignored so arbitrary
+     * keys cannot be injected into the settings store.
+     */
+    private const ALLOWED_KEYS = [
+        'parish_name', 'diocese', 'deanery', 'parish_address', 'parish_phone',
+        'parish_email', 'motto', 'logo_path', 'membership_prefix',
+        'mass_schedule_sunday', 'mass_schedule_weekday', 'mass_schedule_saturday',
+        'paystack_enabled', 'flutterwave_enabled', 'termii_enabled', 'smtp_enabled',
+        'sms_sender_id', 'zone_label',
+    ];
+
+    /**
      * Update settings.
      */
     public function update(Request $request): JsonResponse
@@ -41,11 +53,14 @@ class SettingController extends BaseApiController
         $this->authorize('settings.manage');
 
         foreach ($request->all() as $key => $value) {
+            if (!in_array($key, self::ALLOWED_KEYS, true)) {
+                continue;
+            }
             // Never store masked values
             if ($value === '***masked***') {
                 continue;
             }
-            Setting::set($key, $value);
+            Setting::set($key, is_scalar($value) || $value === null ? (string) $value : json_encode($value));
         }
 
         return $this->success(null, 'Settings updated successfully');
@@ -106,24 +121,38 @@ class SettingController extends BaseApiController
     }
 
     /**
-     * List database backups.
+     * List database backups (stored on the private local disk).
      */
     public function backups(): JsonResponse
     {
         $this->authorize('settings.view');
 
-        $files = Storage::disk('public')->files('backups');
+        $files = Storage::disk('local')->files('backups');
 
         $backups = collect($files)->map(function ($file) {
-            $filePath = Storage::disk('public')->path($file);
+            $filePath = Storage::disk('local')->path($file);
             return [
                 'filename' => basename($file),
                 'size_mb' => round(filesize($filePath) / 1024 / 1024, 2),
                 'created_at' => date('Y-m-d H:i:s', filemtime($filePath)),
-                'download_url' => Storage::disk('public')->url($file),
             ];
         })->sortByDesc('created_at')->values();
 
         return $this->success($backups);
+    }
+
+    /**
+     * Download one backup file — authenticated, settings.manage only.
+     */
+    public function downloadBackup(string $filename): \Symfony\Component\HttpFoundation\BinaryFileResponse|JsonResponse
+    {
+        $this->authorize('settings.manage');
+
+        $safe = basename($filename); // no path traversal
+        if (!Storage::disk('local')->exists('backups/' . $safe)) {
+            return $this->error('Backup not found', 404);
+        }
+
+        return response()->download(Storage::disk('local')->path('backups/' . $safe));
     }
 }

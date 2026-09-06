@@ -23,7 +23,7 @@ class StoreMemberRequest extends BaseFormRequest
             'baptismal_name'  => ['nullable', 'string', 'max:100'],
             'date_of_birth'   => ['nullable', 'date', 'before:today'],
             'gender'          => ['required', 'in:male,female'],
-            'marital_status'  => ['required', 'in:single,married,widowed,divorced'],
+            'marital_status'  => ['required', 'in:single,married,widowed,divorced,religious'],
             'occupation'      => ['nullable', 'string', 'max:150'],
             'family_id'       => ['nullable', 'exists:families,id'],
             'is_family_head'  => ['nullable', 'boolean'],
@@ -46,6 +46,7 @@ class StoreMemberRequest extends BaseFormRequest
             'sacraments.*.type'       => ['required_with:sacraments', 'in:baptism,first_communion,confirmation,marriage,holy_orders'],
             'sacraments.*.date'       => ['nullable', 'date'],
             'sacraments.*.church'     => ['nullable', 'string'],
+            'sacraments.*.spouse_name' => ['nullable', 'string'],
         ];
     }
 }

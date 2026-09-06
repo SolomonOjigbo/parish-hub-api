@@ -31,6 +31,9 @@ class EventResource extends JsonResource
             'registration_count' => $this->whenCounted('registrations'),
             'attendance_count'   => $this->whenCounted('attendances'),
 
+            'registration_member_ids' => $this->whenLoaded('registrations', fn() => $this->registrations->pluck('member_id')),
+            'attendance_member_ids'   => $this->whenLoaded('attendances', fn() => $this->attendances->pluck('member_id')),
+
             'created_by' => $this->created_by,
             'creator'    => $this->whenLoaded('creator', fn() => [
                 'id'   => $this->creator?->id,

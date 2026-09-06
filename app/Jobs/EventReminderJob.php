@@ -47,12 +47,14 @@ class EventReminderJob implements ShouldQueue
         CommunicationLog::create([
             'type'             => 'email',
             'subject'          => 'Reminder: ' . $event->title,
-            'message'          => 'Auto-reminder dispatched 24 hours before event.',
-            'recipient_type'   => 'event_registrants',
+            'message'          => 'Auto-reminder dispatched to event registrants.',
+            'recipient_type'   => 'individual',
             'recipient_ids'    => $recipients,
             'recipient_count'  => $sent,
+            'sent_count'       => $sent,
+            'failed_count'     => 0,
             'sent_by'          => $event->created_by,
-            'status'           => 'queued',
+            'status'           => 'sent',
             'sent_at'          => now(),
         ]);
     }

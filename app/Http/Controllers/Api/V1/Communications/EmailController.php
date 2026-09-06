@@ -10,10 +10,22 @@ use App\Models\Society;
 use App\Models\Zone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 
-class EmailController extends BaseApiController
+class EmailController extends BaseApiController implements HasMiddleware
 {
+    /**
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:communications.send', only: ['send']),
+        ];
+    }
+
     /**
      * Send bulk email.
      */
@@ -61,14 +73,14 @@ class EmailController extends BaseApiController
     protected function resolveRecipientIds(string $recipientType, array $recipientIds): array
     {
         return match ($recipientType) {
-            'all' => Member::where('is_active', true)->pluck('id')->toArray(),
-            'society' => Member::where('is_active', true)
+            'all' => Member::where('status', 'active')->pluck('id')->toArray(),
+            'society' => Member::where('status', 'active')
                 ->whereHas('societies', function ($query) use ($recipientIds) {
                     $query->whereIn('societies.id', $recipientIds);
                 })
                 ->pluck('id')
                 ->toArray(),
-            'zone' => Member::where('is_active', true)
+            'zone' => Member::where('status', 'active')
                 ->whereIn('zone_id', $recipientIds)
                 ->pluck('id')
                 ->toArray(),

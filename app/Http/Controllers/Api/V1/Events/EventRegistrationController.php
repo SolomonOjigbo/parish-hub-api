@@ -26,6 +26,7 @@ class EventRegistrationController extends BaseApiController implements HasMiddle
     {
         return [
             new Middleware('permission:events.view', only: ['index']),
+            new Middleware('permission:events.edit', only: ['register', 'cancel']),
         ];
     }
 

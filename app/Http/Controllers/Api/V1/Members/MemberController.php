@@ -21,8 +21,22 @@ use Intervention\Image\Laravel\Facades\Image;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-class MemberController extends BaseApiController
+class MemberController extends BaseApiController implements HasMiddleware
 {
+    /**
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:members.view',   only: ['index', 'show', 'societies', 'attendance', 'communications', 'auditLog', 'sacramentCertificate']),
+            new Middleware('permission:members.create', only: ['store', 'import']),
+            new Middleware('permission:members.edit',   only: ['update', 'uploadPhoto', 'storeSacrament', 'updateSacrament']),
+            new Middleware('permission:members.delete', only: ['destroy']),
+            new Middleware('permission:members.export', only: ['export']),
+            new Middleware('permission:finance.view',   only: ['giving', 'givingStatement']),
+        ];
+    }
 
     /**
      * GET /api/v1/members
@@ -39,7 +53,7 @@ class MemberController extends BaseApiController
         }
 
         $query = Member::query()
-            ->with(['contactDetail', 'family', 'zone', 'societies'])
+            ->with(['contactDetail', 'family', 'zone', 'societies', 'sacramentalRecords'])
             ->when($request->filled('search'), function ($q) use ($request): void {
                 $search = '%' . $request->query('search') . '%';
                 $q->where(function ($inner) use ($search): void {
@@ -129,9 +143,10 @@ class MemberController extends BaseApiController
             if (!empty($data['sacraments'])) {
                 foreach ($data['sacraments'] as $sac) {
                     $member->sacramentalRecords()->create([
-                        'type'   => $sac['type'],
-                        'date'   => $sac['date']   ?? null,
-                        'church' => $sac['church'] ?? null,
+                        'type'        => $sac['type'],
+                        'date'        => $sac['date']        ?? null,
+                        'church'      => $sac['church']      ?? null,
+                        'spouse_name' => $sac['spouse_name'] ?? null,
                     ]);
                 }
             }
@@ -227,11 +242,14 @@ class MemberController extends BaseApiController
 
             if (!empty($data['sacraments'])) {
                 foreach ($data['sacraments'] as $sac) {
-                    $member->sacramentalRecords()->create([
-                        'type'   => $sac['type'],
-                        'date'   => $sac['date']   ?? null,
-                        'church' => $sac['church'] ?? null,
-                    ]);
+                    $member->sacramentalRecords()->updateOrCreate(
+                        ['type' => $sac['type']],
+                        [
+                            'date'        => $sac['date']        ?? null,
+                            'church'      => $sac['church']      ?? null,
+                            'spouse_name' => $sac['spouse_name'] ?? null,
+                        ]
+                    );
                 }
             }
 
@@ -356,6 +374,129 @@ class MemberController extends BaseApiController
     }
 
     /**
+     * GET /api/v1/members/{id}/societies
+     */
+    public function societies(int $id): JsonResponse
+    {
+        $member = Member::with(['societies' => fn($q) => $q->orderBy('name')])->findOrFail($id);
+
+        $societies = $member->societies->map(fn($society) => [
+            'id'        => $society->id,
+            'name'      => $society->name,
+            'slug'      => $society->slug,
+            'colour'    => $society->colour,
+            'role'      => $society->pivot->role,
+            'joined_at' => $society->pivot->joined_at,
+            'is_active' => (bool) $society->pivot->is_active,
+        ]);
+
+        return $this->success($societies, 'Member societies retrieved successfully.');
+    }
+
+    /**
+     * GET /api/v1/members/{id}/attendance
+     */
+    public function attendance(int $id): JsonResponse
+    {
+        $member = Member::findOrFail($id);
+
+        $records = $member->eventAttendances()
+            ->with('event:id,title,type,start_datetime,location')
+            ->orderByDesc('checked_in_at')
+            ->get()
+            ->map(fn($attendance) => [
+                'id'            => $attendance->id,
+                'event_id'      => $attendance->event_id,
+                'event_title'   => $attendance->event?->title,
+                'event_type'    => $attendance->event?->type,
+                'event_date'    => $attendance->event?->start_datetime?->toDateString(),
+                'location'      => $attendance->event?->location,
+                'checked_in_at' => $attendance->checked_in_at,
+            ]);
+
+        return $this->success($records, 'Member attendance retrieved successfully.');
+    }
+
+    /**
+     * GET /api/v1/members/{id}/communications
+     */
+    public function communications(int $id): JsonResponse
+    {
+        $member = Member::findOrFail($id);
+
+        $logs = \App\Models\CommunicationLog::query()
+            ->where(function ($q) use ($member): void {
+                $q->whereJsonContains('recipient_ids', $member->id)
+                    ->orWhereJsonContains('recipient_ids', (string) $member->id);
+            })
+            ->with('sender:id,name')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn($log) => [
+                'id'         => $log->id,
+                'type'       => $log->type,
+                'subject'    => $log->subject,
+                'message'    => $log->message,
+                'status'     => $log->status,
+                'sent_by'    => $log->sender?->name,
+                'sent_at'    => $log->sent_at,
+                'created_at' => $log->created_at,
+            ]);
+
+        return $this->success($logs, 'Member communications retrieved successfully.');
+    }
+
+    /**
+     * POST /api/v1/members/{id}/sacraments
+     */
+    public function storeSacrament(Request $request, int $id): JsonResponse
+    {
+        $member = Member::findOrFail($id);
+
+        $data = $request->validate([
+            'type'        => ['required', 'in:baptism,first_communion,confirmation,marriage,holy_orders'],
+            'date'        => ['nullable', 'date'],
+            'church'      => ['nullable', 'string', 'max:255'],
+            'minister'    => ['nullable', 'string', 'max:255'],
+            'spouse_name' => ['nullable', 'string', 'max:255'],
+            'notes'       => ['nullable', 'string'],
+        ]);
+
+        $record = $member->sacramentalRecords()->create($data);
+
+        return $this->success(
+            new \App\Resources\Api\V1\SacramentalRecordResource($record),
+            'Sacramental record created successfully.',
+            Response::HTTP_CREATED
+        );
+    }
+
+    /**
+     * PUT /api/v1/members/{id}/sacraments/{sacrament}
+     */
+    public function updateSacrament(Request $request, int $id, int $sacrament): JsonResponse
+    {
+        $member = Member::findOrFail($id);
+        $record = $member->sacramentalRecords()->findOrFail($sacrament);
+
+        $data = $request->validate([
+            'type'        => ['sometimes', 'in:baptism,first_communion,confirmation,marriage,holy_orders'],
+            'date'        => ['nullable', 'date'],
+            'church'      => ['nullable', 'string', 'max:255'],
+            'minister'    => ['nullable', 'string', 'max:255'],
+            'spouse_name' => ['nullable', 'string', 'max:255'],
+            'notes'       => ['nullable', 'string'],
+        ]);
+
+        $record->update($data);
+
+        return $this->success(
+            new \App\Resources\Api\V1\SacramentalRecordResource($record),
+            'Sacramental record updated successfully.'
+        );
+    }
+
+    /**
      * GET /api/v1/members/{id}/audit-log
      */
     public function auditLog(int $id): JsonResponse
@@ -368,6 +509,95 @@ class MemberController extends BaseApiController
             ->get();
 
         return $this->success($logs, 'Audit log retrieved successfully.');
+    }
+
+    /**
+     * GET /api/v1/members/{id}/sacraments/{sacrament}/certificate
+     */
+    public function sacramentCertificate(int $id, int $sacrament): \Illuminate\Http\Response
+    {
+        $member = Member::with('contactDetail')->findOrFail($id);
+        $record = $member->sacramentalRecords()->findOrFail($sacrament);
+
+        $pdf = Pdf::loadView('certificates.sacrament', [
+            'member'      => $member,
+            'record'      => $record,
+            'parish_name' => \App\Models\Setting::get('parish_name', 'St. Ferdinand Catholic Church'),
+            'diocese'     => \App\Models\Setting::get('diocese', 'Catholic Archdiocese of Lagos'),
+            'address'     => \App\Models\Setting::get('parish_address', 'Boys Town, Ipaja, Lagos'),
+        ]);
+
+        $type = str_replace('_', '-', $record->type);
+
+        return $pdf->download("{$type}-certificate-{$member->membership_number}.pdf");
+    }
+
+    /**
+     * GET /api/v1/members/{id}/giving/statement?year=YYYY
+     */
+    public function givingStatement(Request $request, int $id): \Illuminate\Http\Response
+    {
+        $member = Member::with('contactDetail')->findOrFail($id);
+        $year = (int) $request->query('year', now()->year);
+
+        $pdf = Pdf::loadView('reports.giving-statement', array_merge(
+            ['member' => $member],
+            static::buildGivingStatementData($member, $year)
+        ));
+
+        return $pdf->download("giving-statement-{$member->membership_number}-{$year}.pdf");
+    }
+
+    /**
+     * Shared by the staff and portal statement endpoints.
+     *
+     * @return array<string, mixed>
+     */
+    public static function buildGivingStatementData(Member $member, int $year): array
+    {
+        $offerings = \App\Models\Offering::where('member_id', $member->id)
+            ->whereYear('collection_date', $year)->orderBy('collection_date')->get();
+        $tithes = \App\Models\Tithe::where('member_id', $member->id)
+            ->where('period_year', $year)->orderBy('payment_date')->get();
+        $donations = \App\Models\Donation::where('member_id', $member->id)
+            ->whereYear('donation_date', $year)->orderBy('donation_date')->get();
+        $pledgePayments = \App\Models\PledgePayment::whereHas('pledge', fn($q) => $q->where('member_id', $member->id))
+            ->whereYear('payment_date', $year)->orderBy('payment_date')->with('pledge')->get();
+
+        return [
+            'year'            => $year,
+            'offerings'       => $offerings,
+            'tithes'          => $tithes,
+            'donations'       => $donations,
+            'pledge_payments' => $pledgePayments,
+            'total'           => (float) $offerings->sum('amount')
+                + (float) $tithes->sum('amount')
+                + (float) $donations->sum('amount')
+                + (float) $pledgePayments->sum('amount'),
+            'parish_name'     => \App\Models\Setting::get('parish_name', 'St. Ferdinand Catholic Church'),
+            'diocese'         => \App\Models\Setting::get('diocese', 'Catholic Archdiocese of Lagos'),
+        ];
+    }
+
+    /**
+     * POST /api/v1/members/import — CSV/Excel roster import.
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx'],
+        ]);
+
+        $import = new \App\Imports\MembersImport();
+        Excel::import($import, $request->file('file'));
+
+        return $this->success(
+            [
+                'imported' => $import->imported,
+                'skipped'  => $import->skipped,
+            ],
+            "Imported {$import->imported} members" . ($import->skipped ? ", skipped {$import->skipped} rows" : '') . '.'
+        );
     }
 
     /**

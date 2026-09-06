@@ -15,16 +15,21 @@ class DatabaseBackupJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * Backups are written to the PRIVATE local disk (storage/app/backups)
+     * and served only through the authenticated download endpoint —
+     * never from public storage.
+     */
     public function handle(): void
     {
         $dbConnection = config('database.default');
-        $filename = 'parishhub-backup-' . now()->format('Y-m-d-His') . '.sql.gz';
-        $backupPath = storage_path('app/public/backups/' . $filename);
+        $filename = 'parishhub-backup-' . now()->format('Y-m-d-His') . ($dbConnection === 'sqlite' ? '.sqlite' : '.sql.gz');
 
-        // Ensure backups directory exists
-        if (!Storage::disk('public')->exists('backups')) {
-            Storage::disk('public')->makeDirectory('backups');
+        if (!Storage::disk('local')->exists('backups')) {
+            Storage::disk('local')->makeDirectory('backups');
         }
+
+        $backupPath = Storage::disk('local')->path('backups/' . $filename);
 
         try {
             if ($dbConnection === 'sqlite') {
@@ -33,16 +38,14 @@ class DatabaseBackupJob implements ShouldQueue
                 $this->backupMySQL($backupPath);
             }
 
-            // Keep only last 8 backups
             $this->cleanupOldBackups();
 
-            // Log completion to audit logs
             AuditLog::create([
                 'action' => 'database_backup',
-                'user_id' => 1, // System user
+                'user_id' => null, // system-initiated
                 'auditable_type' => 'Database',
-                'auditable_id' => null,
-                'old_values' => [],
+                'auditable_id' => 0,
+                'old_values' => null,
                 'new_values' => ['filename' => $filename],
             ]);
 
@@ -68,11 +71,11 @@ class DatabaseBackupJob implements ShouldQueue
 
         $command = sprintf(
             'mysqldump -h %s -u %s -p%s %s | gzip > %s',
-            $host,
-            $username,
-            $password,
-            $database,
-            $backupPath
+            escapeshellarg($host),
+            escapeshellarg($username),
+            escapeshellarg($password),
+            escapeshellarg($database),
+            escapeshellarg($backupPath)
         );
 
         exec($command, $output, $returnCode);
@@ -84,14 +87,14 @@ class DatabaseBackupJob implements ShouldQueue
 
     protected function cleanupOldBackups(): void
     {
-        $files = Storage::disk('public')->files('backups');
-        $backups = collect($files)->sortByDesc(function ($file) {
-            return Storage::disk('public')->lastModified($file);
-        });
+        $files = Storage::disk('local')->files('backups');
+        $backups = collect($files)->sortByDesc(
+            fn($file) => Storage::disk('local')->lastModified($file)
+        );
 
-        // Keep only last 8 backups
+        // Keep only the last 8 backups
         $backups->slice(8)->each(function ($file) {
-            Storage::disk('public')->delete($file);
+            Storage::disk('local')->delete($file);
         });
     }
 }

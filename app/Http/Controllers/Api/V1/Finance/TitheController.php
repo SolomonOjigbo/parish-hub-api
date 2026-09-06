@@ -9,9 +9,24 @@ use App\Models\Tithe;
 use App\Resources\Api\V1\TitheResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class TitheController extends BaseApiController
+class TitheController extends BaseApiController implements HasMiddleware
 {
+    /**
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:finance.view',   only: ['index', 'show', 'member']),
+            new Middleware('permission:finance.create', only: ['store']),
+            new Middleware('permission:finance.edit',   only: ['update']),
+            new Middleware('permission:finance.delete', only: ['destroy']),
+        ];
+    }
+
     /**
      * Display a listing of tithes.
      */

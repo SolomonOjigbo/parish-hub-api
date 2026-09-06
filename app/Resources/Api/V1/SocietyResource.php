@@ -15,6 +15,7 @@ class SocietyResource extends JsonResource
         return [
             'id'           => $this->id,
             'name'         => $this->name,
+            'short_name'   => $this->short_name,
             'slug'         => $this->slug,
             'description'  => $this->description,
             'colour'       => $this->colour,

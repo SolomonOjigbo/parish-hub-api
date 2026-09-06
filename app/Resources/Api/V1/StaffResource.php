@@ -27,7 +27,7 @@ class StaffResource extends JsonResource
                 'name' => $this->user->name,
                 'email' => $this->user->email,
                 'is_active' => $this->user->is_active,
-                'roles' => $this->whenLoaded('user.roles', fn() => $this->user->roles->pluck('name')),
+                'roles' => $this->user->relationLoaded('roles') ? $this->user->roles->pluck('name') : [],
             ]),
             'member' => $this->whenLoaded('member', fn() => new MemberResource($this->member)),
         ];

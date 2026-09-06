@@ -20,7 +20,9 @@ class UserResource extends JsonResource
             'must_change_password' => $this->must_change_password,
             'last_login_at' => $this->last_login_at?->toIso8601String(),
             'roles' => $this->whenLoaded('roles', fn() => $this->roles->pluck('name')),
-            'permissions' => $this->whenLoaded('permissions', fn() => $this->permissions->pluck('name')),
+            // Effective permissions: direct grants plus everything inherited
+            // through roles — what the frontend checks against.
+            'permissions' => $this->whenLoaded('permissions', fn() => $this->getAllPermissions()->pluck('name')),
             'member_id' => $this->member_id,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

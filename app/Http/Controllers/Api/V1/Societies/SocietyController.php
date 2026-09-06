@@ -36,6 +36,7 @@ class SocietyController extends BaseApiController implements HasMiddleware
     {
         $societies = Society::query()
             ->withCount('members')
+            ->with('members:id,first_name,last_name,other_name')
             ->when($request->filled('search'), function ($q) use ($request): void {
                 $q->where('name', 'like', '%' . $request->query('search') . '%');
             })

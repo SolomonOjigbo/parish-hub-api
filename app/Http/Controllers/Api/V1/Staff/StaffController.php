@@ -25,7 +25,7 @@ class StaffController extends BaseApiController
     {
         $this->authorize('staff.view');
 
-        $query = StaffProfile::with(['user', 'user.roles', 'member']);
+        $query = StaffProfile::with(['user', 'user.roles', 'member.contactDetail']);
 
         if ($request->has('role')) {
             $query->whereHas('user.roles', function ($q) use ($request) {

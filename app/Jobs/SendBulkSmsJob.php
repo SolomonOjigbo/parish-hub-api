@@ -32,11 +32,16 @@ class SendBulkSmsJob implements ShouldQueue
     public function handle(SmsService $smsService): void
     {
         $members = Member::whereIn('id', $this->memberIds)
-            ->where('is_active', true)
-            ->whereNotNull('phone_number')
+            ->where('status', 'active')
+            ->with('contactDetail')
+            ->whereHas('contactDetail', fn($q) => $q->whereNotNull('primary_phone'))
             ->get();
 
-        $phoneNumbers = $members->pluck('phone_number')->toArray();
+        $phoneNumbers = $members
+            ->pluck('contactDetail.primary_phone')
+            ->filter()
+            ->values()
+            ->toArray();
 
         $result = $smsService->send($phoneNumbers, $this->message);
 

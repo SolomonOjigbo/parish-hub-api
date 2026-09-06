@@ -35,7 +35,7 @@ class CommitteeController extends BaseApiController implements HasMiddleware
     public function index(Request $request): JsonResponse
     {
         $committees = Committee::query()
-            ->with('chairMember')
+            ->with(['chairMember', 'actionItems.assignedMember', 'committeeMembers.member'])
             ->withCount('committeeMembers')
             ->when($request->filled('search'), function ($q) use ($request): void {
                 $q->where('name', 'like', '%' . $request->query('search') . '%');

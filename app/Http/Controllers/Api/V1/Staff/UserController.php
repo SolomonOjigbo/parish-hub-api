@@ -6,12 +6,27 @@ use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 
-class UserController extends BaseApiController
+class UserController extends BaseApiController implements HasMiddleware
 {
+    /**
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:staff.create', only: ['store']),
+            new Middleware('permission:staff.edit',   only: ['update', 'resetPassword']),
+            new Middleware('permission:staff.delete', only: ['destroy']),
+            new Middleware('permission:roles.manage', only: ['assignRole']),
+        ];
+    }
+
     /**
      * Store a newly created user account (no staff profile).
      */

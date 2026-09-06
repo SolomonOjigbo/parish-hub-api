@@ -31,7 +31,7 @@ class PortalController extends BaseApiController
             return $this->error('No linked member profile found', 404);
         }
 
-        $member = Member::with(['family', 'societies'])->find($user->member_id);
+        $member = Member::with(['contactDetail', 'family', 'societies', 'sacramentalRecords'])->find($user->member_id);
 
         return $this->success(new MemberResource($member));
     }
@@ -49,28 +49,28 @@ class PortalController extends BaseApiController
             return $this->error('No linked member profile found', 404);
         }
 
-        $request->validate([
+        $contactFields = $request->validate([
             'primary_phone' => ['sometimes', 'string', 'max:20'],
-            'whatsapp_number' => ['sometimes', 'string', 'max:20'],
-            'email' => ['sometimes', 'email', 'max:255'],
-            'address_line1' => ['sometimes', 'string', 'max:255'],
-            'address_line2' => ['sometimes', 'string', 'max:255'],
-            'lga' => ['sometimes', 'string', 'max:100'],
-            'photo' => ['sometimes', 'string'],
+            'whatsapp_number' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'address_line1' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'address_line2' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'lga' => ['sometimes', 'nullable', 'string', 'max:100'],
         ]);
 
-        $member = Member::find($user->member_id);
-        $member->update($request->only([
-            'primary_phone',
-            'whatsapp_number',
-            'email',
-            'address_line1',
-            'address_line2',
-            'lga',
-            'photo',
-        ]));
+        $member = Member::findOrFail($user->member_id);
 
-        return $this->success(new MemberResource($member->load(['family', 'societies'])), 'Profile updated successfully');
+        if (!empty($contactFields)) {
+            $member->contactDetail()->updateOrCreate(
+                ['member_id' => $member->id],
+                $contactFields
+            );
+        }
+
+        return $this->success(
+            new MemberResource($member->load(['contactDetail', 'family', 'societies'])),
+            'Profile updated successfully'
+        );
     }
 
     /**
@@ -91,12 +91,14 @@ class PortalController extends BaseApiController
         ]);
 
         $path = $request->file('photo')->store('members/photos', 'public');
-        $url = Storage::disk('public')->url($path);
 
-        $member = Member::find($user->member_id);
-        $member->update(['photo' => $url]);
+        $member = Member::findOrFail($user->member_id);
+        $member->update(['photo_path' => $path]);
 
-        return $this->success(['photo' => $url], 'Photo uploaded successfully');
+        return $this->success([
+            'photo_path' => $path,
+            'photo_url' => Storage::disk('public')->url($path),
+        ], 'Photo uploaded successfully');
     }
 
     /**
@@ -114,24 +116,50 @@ class PortalController extends BaseApiController
 
         $memberId = $user->member_id;
 
-        $offerings = Offering::where('member_id', $memberId)
-            ->whereBetween('collection_date', [now()->startOfYear(), now()])
-            ->sum('amount');
+        $offerings = Offering::where('member_id', $memberId)->orderByDesc('collection_date')->get();
+        $tithes = Tithe::where('member_id', $memberId)->orderByDesc('payment_date')->get();
+        $donations = Donation::where('member_id', $memberId)->orderByDesc('donation_date')->get();
+        $pledges = \App\Models\Pledge::with('payments')->where('member_id', $memberId)->orderByDesc('start_date')->get();
 
-        $tithes = Tithe::where('member_id', $memberId)
-            ->whereBetween('payment_date', [now()->startOfYear(), now()])
-            ->sum('amount');
-
-        $donations = Donation::where('member_id', $memberId)
-            ->whereBetween('donation_date', [now()->startOfYear(), now()])
-            ->sum('amount');
+        $yearStart = now()->startOfYear();
+        $offeringsYtd = (float) $offerings->where('collection_date', '>=', $yearStart)->sum('amount');
+        $tithesYtd = (float) $tithes->where('payment_date', '>=', $yearStart)->sum('amount');
+        $donationsYtd = (float) $donations->where('donation_date', '>=', $yearStart)->sum('amount');
 
         return $this->success([
-            'offerings_ytd' => (float) $offerings,
-            'tithes_ytd' => (float) $tithes,
-            'donations_ytd' => (float) $donations,
-            'total_ytd' => (float) ($offerings + $tithes + $donations),
+            'offerings' => \App\Resources\Api\V1\OfferingResource::collection($offerings),
+            'tithes' => \App\Resources\Api\V1\TitheResource::collection($tithes),
+            'donations' => \App\Resources\Api\V1\DonationResource::collection($donations),
+            'pledges' => \App\Resources\Api\V1\PledgeResource::collection($pledges),
+            'offerings_ytd' => $offeringsYtd,
+            'tithes_ytd' => $tithesYtd,
+            'donations_ytd' => $donationsYtd,
+            'total_ytd' => $offeringsYtd + $tithesYtd + $donationsYtd,
         ]);
+    }
+
+    /**
+     * GET /api/v1/portal/giving/statement?year=YYYY — own annual statement PDF.
+     */
+    public function givingStatement(Request $request): \Illuminate\Http\Response|JsonResponse
+    {
+        $this->authorize('portal.access');
+
+        $user = $request->user();
+
+        if (!$user->member_id) {
+            return $this->error('No linked member profile found', 404);
+        }
+
+        $member = Member::with('contactDetail')->findOrFail($user->member_id);
+        $year = (int) $request->query('year', now()->year);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.giving-statement', array_merge(
+            ['member' => $member],
+            \App\Http\Controllers\Api\V1\Members\MemberController::buildGivingStatementData($member, $year)
+        ));
+
+        return $pdf->download("giving-statement-{$year}.pdf");
     }
 
     /**
@@ -143,24 +171,26 @@ class PortalController extends BaseApiController
 
         $user = $request->user();
 
-        $events = Event::where('start_date', '>=', now())
-            ->where('requires_registration', true)
-            ->orderBy('start_date')
+        $events = Event::where('start_datetime', '>=', now())
+            ->orderBy('start_datetime')
             ->get();
 
-        $eventsWithStatus = $events->map(function ($event) use ($user) {
-            $isRegistered = EventRegistration::where('event_id', $event->id)
-                ->where('member_id', $user->member_id)
-                ->exists();
+        $registeredIds = EventRegistration::whereIn('event_id', $events->pluck('id'))
+            ->where('member_id', $user->member_id)
+            ->pluck('event_id')
+            ->all();
 
+        $eventsWithStatus = $events->map(function ($event) use ($registeredIds) {
             return [
                 'id' => $event->id,
                 'title' => $event->title,
+                'type' => $event->type,
                 'description' => $event->description,
-                'start_date' => $event->start_date?->toIso8601String(),
-                'end_date' => $event->end_date?->toIso8601String(),
+                'start_datetime' => $event->start_datetime?->toIso8601String(),
+                'end_datetime' => $event->end_datetime?->toIso8601String(),
                 'location' => $event->location,
-                'is_registered' => $isRegistered,
+                'requires_registration' => (bool) $event->requires_registration,
+                'is_registered' => in_array($event->id, $registeredIds, true),
             ];
         });
 
@@ -197,7 +227,8 @@ class PortalController extends BaseApiController
         EventRegistration::create([
             'event_id' => $eventId,
             'member_id' => $user->member_id,
-            'registered_by' => $user->id,
+            'registered_at' => now(),
+            'payment_status' => $event->is_retreat ? 'pending' : 'na',
         ]);
 
         return $this->success(null, 'Event registration successful', 201);
@@ -222,7 +253,7 @@ class PortalController extends BaseApiController
             return $this->error('No family linked to this member', 404);
         }
 
-        $family = $member->family->load('members');
+        $family = $member->family->load('members.contactDetail');
 
         return $this->success(new FamilyResource($family));
     }

@@ -9,9 +9,41 @@ use App\Models\Donation;
 use App\Resources\Api\V1\DonationResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class DonationController extends BaseApiController
+class DonationController extends BaseApiController implements HasMiddleware
 {
+    /**
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:finance.view',   only: ['index', 'show', 'donor', 'receipt']),
+            new Middleware('permission:finance.create', only: ['store']),
+            new Middleware('permission:finance.edit',   only: ['update']),
+            new Middleware('permission:finance.delete', only: ['destroy']),
+        ];
+    }
+
+    /**
+     * GET /api/v1/donations/{donation}/receipt — printable PDF receipt.
+     */
+    public function receipt(Donation $donation): \Illuminate\Http\Response
+    {
+        $donation->load('member.contactDetail');
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('receipts.donation', [
+            'donation'    => $donation,
+            'parish_name' => \App\Models\Setting::get('parish_name', 'St. Ferdinand Catholic Church'),
+            'diocese'     => \App\Models\Setting::get('diocese', 'Catholic Archdiocese of Lagos'),
+            'address'     => \App\Models\Setting::get('parish_address', 'Boys Town, Ipaja, Lagos'),
+        ]);
+
+        return $pdf->download("donation-receipt-{$donation->id}.pdf");
+    }
+
     /**
      * Display a listing of donations.
      */

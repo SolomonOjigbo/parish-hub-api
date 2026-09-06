@@ -24,7 +24,7 @@ class EventController extends BaseApiController implements HasMiddleware
         return [
             new Middleware('permission:events.view',   only: ['index', 'show']),
             new Middleware('permission:events.create', only: ['store']),
-            new Middleware('permission:events.edit',   only: ['update']),
+            new Middleware('permission:events.edit',   only: ['update', 'sendReminders']),
             new Middleware('permission:events.delete', only: ['destroy']),
         ];
     }
@@ -38,6 +38,7 @@ class EventController extends BaseApiController implements HasMiddleware
 
         $query = Event::query()
             ->withCount(['registrations', 'attendances'])
+            ->with(['registrations:id,event_id,member_id', 'attendances:id,event_id,member_id'])
             ->when($request->filled('type'), fn($q) => $q->where('type', $request->query('type')))
             ->when($request->filled('from'), fn($q) => $q->where('start_datetime', '>=', $request->query('from')))
             ->when($request->filled('to'),   fn($q) => $q->where('start_datetime', '<=', $request->query('to')))
@@ -95,7 +96,7 @@ class EventController extends BaseApiController implements HasMiddleware
     public function show(int $id): JsonResponse
     {
         $event = Event::withCount(['registrations', 'attendances'])
-            ->with('creator')
+            ->with(['creator', 'registrations:id,event_id,member_id', 'attendances:id,event_id,member_id'])
             ->findOrFail($id);
 
         return $this->success(
@@ -128,5 +129,28 @@ class EventController extends BaseApiController implements HasMiddleware
         $event->delete();
 
         return $this->success(null, 'Event deleted', 200);
+    }
+
+    /**
+     * POST /api/v1/events/{id}/reminders/send
+     */
+    public function sendReminders(int $id): JsonResponse
+    {
+        $event = Event::withCount('registrations')->findOrFail($id);
+
+        if ($event->start_datetime->isPast()) {
+            return $this->error('Cannot send reminders for a past event.', 422);
+        }
+
+        if ($event->registrations_count === 0) {
+            return $this->error('This event has no registrations to remind.', 422);
+        }
+
+        EventReminderJob::dispatch($event->id);
+
+        return $this->success(
+            ['recipient_count' => $event->registrations_count],
+            'Event reminders queued successfully.'
+        );
     }
 }

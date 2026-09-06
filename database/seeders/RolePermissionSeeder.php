@@ -25,7 +25,6 @@ class RolePermissionSeeder extends Seeder
             'settings.view', 'settings.manage',
             'roles.view', 'roles.manage',
             'audit.view',
-            'sync.push', 'sync.pull',
             'portal.access',
         ];
 
@@ -33,8 +32,17 @@ class RolePermissionSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
+        // Retired permissions (e.g. the removed sync module) are pruned so
+        // re-running the seeder converges on the list above.
+        Permission::whereNotIn('name', $permissions)->delete();
+
         $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $superAdmin->syncPermissions(Permission::all());
+
+        // The parish priest has full oversight of the parish, matching the
+        // frontend's `priest` role.
+        $priest = Role::firstOrCreate(['name' => 'priest', 'guard_name' => 'web']);
+        $priest->syncPermissions(Permission::all());
 
         $financeOfficer = Role::firstOrCreate(['name' => 'finance_officer', 'guard_name' => 'web']);
         $financeOfficer->syncPermissions([
@@ -64,11 +72,11 @@ class RolePermissionSeeder extends Seeder
             'portal.access',
         ]);
 
+        // Parishioners only use the /portal endpoints, which scope all data
+        // to their own linked member record; they get no admin-side reads.
         $parishioner = Role::firstOrCreate(['name' => 'parishioner', 'guard_name' => 'web']);
         $parishioner->syncPermissions([
             'portal.access',
-            'events.view',
-            'members.view',
         ]);
     }
 }

@@ -26,7 +26,7 @@ class UpdateMemberRequest extends BaseFormRequest
             'baptismal_name'  => ['nullable', 'string', 'max:100'],
             'date_of_birth'   => ['nullable', 'date', 'before:today'],
             'gender'          => ['sometimes', 'required', 'in:male,female'],
-            'marital_status'  => ['sometimes', 'required', 'in:single,married,widowed,divorced'],
+            'marital_status'  => ['sometimes', 'required', 'in:single,married,widowed,divorced,religious'],
             'occupation'      => ['nullable', 'string', 'max:150'],
             'family_id'       => ['nullable', 'exists:families,id'],
             'is_family_head'  => ['nullable', 'boolean'],
@@ -55,6 +55,7 @@ class UpdateMemberRequest extends BaseFormRequest
             'sacraments.*.type'       => ['required_with:sacraments', 'in:baptism,first_communion,confirmation,marriage,holy_orders'],
             'sacraments.*.date'       => ['nullable', 'date'],
             'sacraments.*.church'     => ['nullable', 'string'],
+            'sacraments.*.spouse_name' => ['nullable', 'string'],
         ];
     }
 }

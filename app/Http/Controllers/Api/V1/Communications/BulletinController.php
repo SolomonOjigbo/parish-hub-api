@@ -8,10 +8,23 @@ use App\Resources\Api\V1\BulletinResource;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-class BulletinController extends BaseApiController
+class BulletinController extends BaseApiController implements HasMiddleware
 {
+    /**
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:communications.view', only: ['index', 'show', 'preview']),
+            new Middleware('permission:communications.send', only: ['store', 'update', 'export']),
+        ];
+    }
+
     /**
      * Display a listing of bulletins.
      */
@@ -30,13 +43,13 @@ class BulletinController extends BaseApiController
      */
     public function store(Request $request): JsonResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'sunday_date' => ['required', 'date'],
             'title' => ['required', 'string', 'max:255'],
             'content' => ['required', 'string'],
         ]);
 
-        $bulletin = Bulletin::create(array_merge($request->validated(), [
+        $bulletin = Bulletin::create(array_merge($data, [
             'generated_by' => $request->user()->id,
         ]));
 
@@ -56,13 +69,13 @@ class BulletinController extends BaseApiController
      */
     public function update(Request $request, Bulletin $bulletin): JsonResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'sunday_date' => ['sometimes', 'date'],
             'title' => ['sometimes', 'string', 'max:255'],
             'content' => ['sometimes', 'string'],
         ]);
 
-        $bulletin->update($request->validated());
+        $bulletin->update($data);
 
         return $this->success(new BulletinResource($bulletin), 'Bulletin updated successfully');
     }

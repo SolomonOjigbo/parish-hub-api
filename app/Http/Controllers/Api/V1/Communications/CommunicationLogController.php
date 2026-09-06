@@ -8,9 +8,21 @@ use App\Models\Member;
 use App\Resources\Api\V1\CommunicationLogResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class CommunicationLogController extends BaseApiController
+class CommunicationLogController extends BaseApiController implements HasMiddleware
 {
+    /**
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:communications.view', only: ['index', 'show']),
+        ];
+    }
+
     /**
      * Display a listing of communication logs.
      */
