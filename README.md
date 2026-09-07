@@ -64,4 +64,6 @@ php artisan test
 ```
 
 ## Deployment
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the cPanel + MySQL production guide.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the cPanel + MySQL production guide
+(Namecheap/Orangehost examples); the frontend deploys to Vercel per its own
+[DEPLOYMENT.md](https://github.com/SolomonOjigbo/parish-hub-connect/blob/main/DEPLOYMENT.md).
