@@ -9,17 +9,25 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('bulletins', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->date('sunday_date');
             $table->json('content');
             $table->timestamp('published_at')->nullable();
             $table->timestamps();
 
-            if (Schema::hasTable('users')) {
-                $table->foreignId('generated_by')->constrained('users')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('generated_by');
-            }
+              // ✅ FIXED: UUID foreign key
+            $table->uuid('generated_by');
+            $table->foreign('generated_by')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('users')) {
+            //     $table->foreignId('generated_by')->constrained('users')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('generated_by');
+            // }
         });
     }
 

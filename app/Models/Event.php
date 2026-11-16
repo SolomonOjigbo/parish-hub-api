@@ -7,10 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Event extends Model
 {
     use SoftDeletes;
+
+    protected $keyType = 'string';
+    protected $primaryKey = 'id';
+    public $incrementing = false;
 
     protected $fillable = [
         'title',
@@ -28,19 +33,27 @@ class Event extends Model
         'created_by',
     ];
 
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (!$model->id) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
+
     protected $appends = ['status'];
 
-    protected function casts(): array
-    {
-        return [
-            'start_datetime' => 'datetime',
-            'end_datetime' => 'datetime',
-            'requires_registration' => 'boolean',
-            'is_retreat' => 'boolean',
-            'include_in_bulletin' => 'boolean',
-            'retreat_fee' => 'decimal:2',
-        ];
-    }
+    protected $casts = [
+        'start_datetime' => 'datetime',
+        'end_datetime' => 'datetime',
+        'requires_registration' => 'boolean',
+        'is_retreat' => 'boolean',
+        'include_in_bulletin' => 'boolean',
+        'retreat_fee' => 'decimal:2',
+    ];
 
     public function registrations(): HasMany
     {
@@ -57,20 +70,19 @@ class Event extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    protected function status(): Attribute
-    {
-        return Attribute::get(function (): string {
-            $now = now();
+protected function status(): Attribute
+{
+    return Attribute::get(function (): string {
 
-            if ($this->end_datetime && $this->end_datetime->isPast()) {
-                return 'past';
-            }
+        if ($this->end_datetime && $this->end_datetime->isPast()) {
+            return 'past';
+        }
 
-            if ($this->start_datetime->isFuture()) {
-                return 'upcoming';
-            }
+        if ($this->start_datetime && $this->start_datetime->isFuture()) {
+            return 'upcoming';
+        }
 
-            return 'ongoing';
-        });
-    }
+        return 'ongoing';
+    });
+}
 }

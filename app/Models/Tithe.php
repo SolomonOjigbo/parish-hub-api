@@ -5,10 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Tithe extends Model
 {
     use SoftDeletes;
+
+    protected $keyType = 'string';
+    public $incrementing = false;
 
     protected $fillable = [
         'member_id',
@@ -21,6 +25,17 @@ class Tithe extends Model
         'recorded_by',
         'notes',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (!$model->id) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

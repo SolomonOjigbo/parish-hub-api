@@ -9,30 +9,51 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('society_dues', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->unsignedTinyInteger('period_month');
             $table->unsignedSmallInteger('period_year');
             $table->decimal('amount', 10, 2);
             $table->timestamp('paid_at')->nullable();
             $table->timestamps();
 
-            if (Schema::hasTable('societies')) {
-                $table->foreignId('society_id')->constrained('societies')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('society_id');
-            }
+             // ✅ UUID FOREIGN KEYS
 
-            if (Schema::hasTable('members')) {
-                $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('member_id');
-            }
+            $table->uuid('society_id');
+            $table->foreign('society_id')
+                ->references('id')
+                ->on('societies')
+                ->cascadeOnDelete();
 
-            if (Schema::hasTable('users')) {
-                $table->foreignId('recorded_by')->constrained('users')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('recorded_by');
-            }
+            $table->uuid('member_id');
+            $table->foreign('member_id')
+                ->references('id')
+                ->on('members')
+                ->cascadeOnDelete();
+
+            $table->uuid('recorded_by');
+            $table->foreign('recorded_by')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('societies')) {
+            //     $table->foreignId('society_id')->constrained('societies')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('society_id');
+            // }
+
+            // if (Schema::hasTable('members')) {
+            //     $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('member_id');
+            // }
+
+            // if (Schema::hasTable('users')) {
+            //     $table->foreignId('recorded_by')->constrained('users')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('recorded_by');
+            // }
         });
     }
 

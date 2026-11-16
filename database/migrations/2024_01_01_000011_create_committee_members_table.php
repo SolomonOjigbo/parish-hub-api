@@ -9,21 +9,36 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('committee_members', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->string('role')->nullable();
             $table->timestamps();
 
-            if (Schema::hasTable('committees')) {
-                $table->foreignId('committee_id')->constrained('committees')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('committee_id');
-            }
+              // ✅ UUID foreign keys
+            $table->uuid('committee_id');
+            $table->uuid('member_id');
 
-            if (Schema::hasTable('members')) {
-                $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('member_id');
-            }
+            $table->foreign('committee_id')
+                ->references('id')
+                ->on('committees')
+                ->cascadeOnDelete();
+
+            $table->foreign('member_id')
+                ->references('id')
+                ->on('members')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('committees')) {
+            //     $table->foreignId('committee_id')->constrained('committees')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('committee_id');
+            // }
+
+            // if (Schema::hasTable('members')) {
+            //     $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('member_id');
+            // }
         });
     }
 

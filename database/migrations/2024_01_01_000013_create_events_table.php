@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('events', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->string('title');
             $table->enum('type', ['mass', 'society_meeting', 'retreat', 'fundraiser', 'feast_day', 'diocesan', 'other']);
             $table->text('description')->nullable();
@@ -25,11 +26,19 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            if (Schema::hasTable('users')) {
-                $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('created_by');
-            }
+            // UUID FK (FIXED)
+            $table->uuid('created_by');
+
+            $table->foreign('created_by')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('users')) {
+            //     $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('created_by');
+            // }
         });
     }
 

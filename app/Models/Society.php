@@ -12,6 +12,9 @@ class Society extends Model
 {
     use SoftDeletes;
 
+    protected $keyType = 'string';
+    public $incrementing = false;
+
     protected $fillable = [
         'name',
         'slug',
@@ -20,6 +23,17 @@ class Society extends Model
         'icon',
         'is_active',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (!$model->id) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

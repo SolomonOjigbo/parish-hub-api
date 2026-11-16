@@ -15,6 +15,7 @@ use App\Resources\Api\V1\FamilyResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class PortalController extends BaseApiController
 {
@@ -76,7 +77,7 @@ class PortalController extends BaseApiController
     /**
      * Upload member photo.
      */
-    public function uploadPhoto(Request $request): JsonResponse
+    public function uploadPhotoold(Request $request): JsonResponse
     {
         $this->authorize('portal.access');
 
@@ -97,6 +98,56 @@ class PortalController extends BaseApiController
         $member->update(['photo' => $url]);
 
         return $this->success(['photo' => $url], 'Photo uploaded successfully');
+    }
+    public function uploadPhoto(Request $request): JsonResponse
+    {
+        $this->authorize('portal.access');
+
+        $user = $request->user();
+
+        if (!$user->member_id) {
+            return $this->error('No linked member profile found', 404);
+        }
+
+        $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $member = Member::findOrFail($user->member_id);
+
+            // ✅ Delete old photo
+            if ($member->photo_path && file_exists(public_path($member->photo_path))) {
+                unlink(public_path($member->photo_path));
+            }
+
+            // ✅ Upload new photo
+            $file = $request->file('photo');
+            $filename = time() . '_' . $file->getClientOriginalName();
+
+            // move to public/upload/member/photos
+            $file->move(public_path('upload/member/photos'), $filename);
+
+            // save relative path (NOT full URL)
+            $member->update([
+                'photo_path' => 'upload/member/photos/' . $filename,
+            ]);
+
+            DB::commit();
+
+            return $this->success([
+                'photo_url' => asset($member->photo_path),
+            ], 'Photo uploaded successfully');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return $this->error(
+                config('app.debug') ? $e->getMessage() : 'Upload failed',
+                500
+            );
+        }
     }
 
     /**

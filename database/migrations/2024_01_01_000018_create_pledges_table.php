@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('pledges', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->string('purpose');
             $table->text('description')->nullable();
             $table->decimal('total_amount', 10, 2);
@@ -21,17 +22,30 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            if (Schema::hasTable('members')) {
-                $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('member_id');
-            }
+            // ✅ UUID FIXED
+            $table->uuid('member_id')->nullable();
+            $table->foreign('member_id')
+                ->references('id')
+                ->on('members')
+                ->nullOnDelete();
 
-            if (Schema::hasTable('users')) {
-                $table->foreignId('recorded_by')->constrained('users')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('recorded_by');
-            }
+            $table->uuid('recorded_by');
+            $table->foreign('recorded_by')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('members')) {
+            //     $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('member_id');
+            // }
+
+            // if (Schema::hasTable('users')) {
+            //     $table->foreignId('recorded_by')->constrained('users')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('recorded_by');
+            // }
         });
     }
 

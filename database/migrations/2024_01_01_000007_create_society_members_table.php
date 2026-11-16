@@ -9,23 +9,38 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('society_members', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
+
+            $table->uuid('society_id');
+            $table->uuid('member_id');
+
             $table->enum('role', ['member', 'president', 'vicePresident', 'secretary', 'treasurer', 'PRO', 'welfareOfficer'])->default('member');
             $table->date('joined_at')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            if (Schema::hasTable('societies')) {
-                $table->foreignId('society_id')->constrained('societies')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('society_id');
-            }
+            $table->foreign('society_id')
+                ->references('id')
+                ->on('societies')
+                ->cascadeOnDelete();
 
-            if (Schema::hasTable('members')) {
-                $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('member_id');
-            }
+            $table->foreign('member_id')
+                ->references('id')
+                ->on('members')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('societies')) {
+            //     $table->foreignId('society_id')->constrained('societies')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('society_id');
+            // }
+
+            // if (Schema::hasTable('members')) {
+            //     $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('member_id');
+            // }
 
             $table->unique(['society_id', 'member_id']);
         });

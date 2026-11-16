@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('sacramental_records', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->enum('type', ['baptism', 'first_communion', 'confirmation', 'marriage', 'holy_orders']);
             $table->date('date')->nullable();
             $table->string('church')->nullable();
@@ -19,11 +20,18 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            if (Schema::hasTable('members')) {
-                $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('member_id');
-            }
+            // if (Schema::hasTable('members')) {
+            //     $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('member_id');
+            // }
+
+              $table->uuid('member_id');
+
+    $table->foreign('member_id')
+        ->references('id')
+        ->on('members')
+        ->cascadeOnDelete();
         });
     }
 

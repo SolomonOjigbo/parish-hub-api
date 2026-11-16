@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('society_meetings', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->string('title');
             $table->date('meeting_date');
             $table->time('meeting_time')->nullable();
@@ -20,11 +21,19 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            if (Schema::hasTable('societies')) {
-                $table->foreignId('society_id')->constrained('societies')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('society_id');
-            }
+            // ✅ FIX: UUID foreign key
+            $table->uuid('society_id');
+
+            $table->foreign('society_id')
+                ->references('id')
+                ->on('societies')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('societies')) {
+            //     $table->foreignId('society_id')->constrained('societies')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('society_id');
+            // }
         });
     }
 

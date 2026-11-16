@@ -8,6 +8,8 @@ use App\Models\Event;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class PublicController extends BaseApiController
 {
@@ -16,7 +18,7 @@ class PublicController extends BaseApiController
      */
     public function register(Request $request): JsonResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'date_of_birth' => ['required', 'date'],
@@ -28,25 +30,30 @@ class PublicController extends BaseApiController
             'zone_id' => ['nullable', 'exists:zones,id'],
         ]);
 
-        $member = Member::create(array_merge($request->validated(), [
+        $member = Member::create(array_merge($data, [
             'is_active' => true,
             'status' => 'active',
         ]));
 
-        // Send welcome email if email provided
-        if ($request->has('email')) {
+        if (!empty($data['email'])) {
             try {
-                Mail::raw("Welcome to St. Ferdinand Catholic Church!\n\nYour registration has been received. We will contact you shortly with more information about our parish community.\n\nGod bless you.", function ($message) use ($request) {
-                    $message->to($request->email)
-                        ->subject('Welcome to St. Ferdinand Catholic Church');
-                });
+                Mail::raw(
+                    "Welcome to St. Ferdinand Catholic Church!\n\nYour registration has been received.",
+                    function ($message) use ($data) {
+                        $message->to($data['email'])
+                            ->subject('Welcome to St. Ferdinand Catholic Church');
+                    }
+                );
             } catch (\Exception $e) {
-                // Continue even if email fails
+                Log::error('Email failed: ' . $e->getMessage());
             }
         }
 
-        return $this->success(['member_id' => $member->id], 'Registration successful', 201);
+        return $this->success([
+            'member_id' => $member->id
+        ], 'Registration successful', 201);
     }
+
 
     /**
      * Visitor card submission.
@@ -90,9 +97,9 @@ class PublicController extends BaseApiController
      */
     public function events(Request $request): JsonResponse
     {
-        $events = Event::where('start_date', '>=', now())
-            ->where('start_date', '<=', now()->addDays(30))
-            ->orderBy('start_date')
+        $events = Event::where('start_datetime', '>=', now())
+            ->where('start_datetime', '<=', now()->addDays(30))
+            ->orderBy('start_datetime')
             ->get();
 
         $publicEvents = $events->map(function ($event) {
@@ -100,10 +107,14 @@ class PublicController extends BaseApiController
                 'id' => $event->id,
                 'title' => $event->title,
                 'description' => $event->description,
-                'start_date' => $event->start_date?->toIso8601String(),
-                'end_date' => $event->end_date?->toIso8601String(),
+                'start_date' => $event->start_datetime
+                    ? $event->start_datetime->toIso8601String()
+                    : null,
+                'end_date' => $event->end_datetime
+                    ? $event->end_datetime->toIso8601String()
+                    : null,
                 'location' => $event->location,
-                'requires_registration' => $event->requires_registration,
+                'requires_registration' => $event->requires_registration ?? false,
             ];
         });
 

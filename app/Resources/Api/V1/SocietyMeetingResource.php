@@ -4,7 +4,6 @@ namespace App\Resources\Api\V1;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class SocietyMeetingResource extends JsonResource
 {
@@ -21,13 +20,21 @@ class SocietyMeetingResource extends JsonResource
             'meeting_time'   => $this->meeting_time,
             'venue'          => $this->venue,
             'agenda'         => $this->agenda,
+
             'minutes_path'   => $this->minutes_path,
-            'minutes_url'    => $this->minutes_path
-                ? Storage::disk('public')->url($this->minutes_path)
-                : null,
+            'minutes_url'    => $this->getMinutesUrl(),
+
             'minutes_status' => $this->minutes_status,
+
             'created_at'     => $this->created_at?->toIso8601String(),
             'updated_at'     => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    protected function getMinutesUrl(): ?string
+    {
+        return $this->minutes_path
+            ? asset($this->minutes_path)
+            : null;
     }
 }

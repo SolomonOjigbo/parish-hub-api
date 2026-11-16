@@ -108,7 +108,7 @@ class SettingController extends BaseApiController
     /**
      * List database backups.
      */
-    public function backups(): JsonResponse
+    public function backupsOld(): JsonResponse
     {
         $this->authorize('settings.view');
 
@@ -123,6 +123,37 @@ class SettingController extends BaseApiController
                 'download_url' => Storage::disk('public')->url($file),
             ];
         })->sortByDesc('created_at')->values();
+
+        return $this->success($backups);
+    }
+
+    public function backups(): JsonResponse
+    {
+        $this->authorize('settings.view');
+
+        $directory = public_path('upload/backups');
+
+        // ensure directory exists
+        if (!file_exists($directory)) {
+            return $this->success([]);
+        }
+
+        $files = scandir($directory);
+
+        $backups = collect($files)
+            ->filter(fn($file) => !in_array($file, ['.', '..']))
+            ->map(function ($file) use ($directory) {
+                $filePath = $directory . '/' . $file;
+
+                return [
+                    'filename'     => $file,
+                    'size_mb'      => round(filesize($filePath) / 1024 / 1024, 2),
+                    'created_at'   => date('Y-m-d H:i:s', filemtime($filePath)),
+                    'download_url' => asset('upload/backups/' . $file),
+                ];
+            })
+            ->sortByDesc('created_at')
+            ->values();
 
         return $this->success($backups);
     }

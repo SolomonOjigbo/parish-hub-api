@@ -1,0 +1,1382 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "St. Ferdinand Catholic Church API",
+        "description": "Blockchain Application API Documentation",
+        "contact": {
+            "email": "support@stferdinand.com"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [{
+        "url": "http://127.0.0.1:8000/api",
+        "description": "Local API Server"
+    }],
+    "paths": {
+        "/v1/hello": {
+            "get": {
+                "tags": ["Health"],
+                "summary": "Hello World API",
+                "description": "Returns a Hello World message",
+                "operationId": "7dc5d2524c671257eb34a2447eab8e9f",
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Hello World 🚀"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/up": {
+            "get": {
+                "tags": ["Health"],
+                "summary": "Health check",
+                "description": "Checks if the API is running",
+                "operationId": "4bedda9b6670b507d47eb374b79787ea",
+                "responses": {
+                    "200": {
+                        "description": "API is healthy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "ok"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/public/register": {
+            "post": {
+                "tags": ["Public"],
+                "summary": "Public member registration",
+                "description": "Register a new church member",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "date_of_birth",
+                                    "gender",
+                                    "primary_phone",
+                                    "address_line1"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "John"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Doe"
+                                    },
+                                    "date_of_birth": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "1990-01-01"
+                                    },
+                                    "gender": {
+                                        "type": "string",
+                                        "enum": ["male", "female"]
+                                    },
+                                    "primary_phone": {
+                                        "type": "string",
+                                        "example": "+2348012345678"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "john@example.com"
+                                    },
+                                    "address_line1": {
+                                        "type": "string",
+                                        "example": "12 Church Street"
+                                    },
+                                    "lga": {
+                                        "type": "string",
+                                        "example": "Ikeja"
+                                    },
+                                    "zone_id": {
+                                        "type": "integer",
+                                        "example": "6f555b38-818d-4d03-be66-466ebc352f84"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Registration successful",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "status": "success",
+                                    "message": "Registration successful",
+                                    "data": {
+                                        "member_id": 101
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+
+        "/v1/public/visitor": {
+            "post": {
+                "tags": ["Public"],
+                "summary": "Visitor card submission",
+                "description": "Submit visitor information",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["name", "phone"],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Jane Doe"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+2348011122233"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "jane@example.com"
+                                    },
+                                    "heard_from": {
+                                        "type": "string",
+                                        "example": "Friend invitation"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Visitor submission successful",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "status": "success",
+                                    "message": "Visitor card submitted successfully",
+                                    "data": {
+                                        "member_id": 102
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+
+        "/v1/public/events": {
+            "get": {
+                "tags": ["Public"],
+                "summary": "Get upcoming public events",
+                "description": "Fetch events happening within the next 30 days",
+                "responses": {
+                    "200": {
+                        "description": "List of upcoming events",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "status": "success",
+                                    "data": [{
+                                        "id": 1,
+                                        "title": "Sunday Service",
+                                        "description": "Weekly worship service",
+                                        "start_date": "2026-05-20T09:00:00Z",
+                                        "end_date": "2026-05-20T11:00:00Z",
+                                        "location": "Main Church",
+                                        "requires_registration": false
+                                    }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/login": {
+            "post": {
+                "tags": ["Auth"],
+                "summary": "Login user",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["email", "password"],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "super_admin@stferdinand.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "Password@123"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login successful",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "status": "success",
+                                    "message": "Login successful",
+                                    "data": {
+                                        "token": "1|long-sanctum-token",
+                                        "user": {
+                                            "id": 1,
+                                            "name": "Admin User",
+                                            "email": "admin@example.com",
+                                            "roles": [],
+                                            "permissions": []
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid credentials"
+                    },
+                    "403": {
+                        "description": "Account disabled"
+                    }
+                }
+            }
+        },
+
+        "/v1/auth/forgot-password": {
+            "post": {
+                "tags": ["Auth"],
+                "summary": "Send password reset link",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["email"],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "super_admin@stferdinand.com"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Reset link sent (if email exists)"
+                    }
+                }
+            }
+        },
+
+        "/v1/auth/reset-password": {
+            "post": {
+                "tags": ["Auth"],
+                "summary": "Reset password",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "email",
+                                    "password",
+                                    "password_confirmation",
+                                    "token"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "newpassword123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "newpassword123"
+                                    },
+                                    "token": {
+                                        "type": "string",
+                                        "example": "reset-token-from-email"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset successful"
+                    },
+                    "422": {
+                        "description": "Invalid token or data"
+                    }
+                }
+            }
+        },
+
+        "/v1/auth/logout": {
+            "post": {
+                "tags": ["Auth"],
+                "summary": "Logout user",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Logged out successfully"
+                    }
+                }
+            }
+        },
+
+        "/v1/auth/me": {
+            "get": {
+                "tags": ["Auth"],
+                "summary": "Get authenticated user",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "responses": {
+                    "200": {
+                        "description": "User details",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "status": "success",
+                                    "data": {
+                                        "id": 1,
+                                        "name": "Admin User",
+                                        "email": "admin@example.com",
+                                        "roles": [],
+                                        "permissions": []
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        "/v1/auth/me/password": {
+            "put": {
+                "tags": ["Auth"],
+                "summary": "Change password",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "current_password",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "example": "oldpassword"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "newpassword123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "newpassword123"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password changed successfully"
+                    },
+                    "422": {
+                        "description": "Validation error or wrong password"
+                    }
+                }
+            }
+        },
+        "/v1/members": {
+            "get": {
+                "tags": ["Members"],
+                "summary": "Get all members",
+                "description": "Retrieve paginated list of members with filters, search, sorting",
+                "parameters": [{
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 25
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "last_name"
+                        }
+                    },
+                    {
+                        "name": "direction",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "asc"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "john"
+                        }
+                    },
+                    {
+                        "name": "society_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "active"
+                        }
+                    },
+                    {
+                        "name": "zone_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Members retrieved successfully"
+                    }
+                }
+            },
+            "post": {
+                "tags": ["Members"],
+                "summary": "Create a member",
+                "description": "Store a new member with contact details, societies, and sacraments",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "first_name",
+                                    "last_name",
+                                    "gender",
+                                    "marital_status",
+                                    "primary_phone"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "John"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Doe"
+                                    },
+                                    "other_name": {
+                                        "type": "string",
+                                        "example": "Michael"
+                                    },
+                                    "baptismal_name": {
+                                        "type": "string",
+                                        "example": "Peter"
+                                    },
+                                    "date_of_birth": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "1995-05-20"
+                                    },
+                                    "gender": {
+                                        "type": "string",
+                                        "example": "male"
+                                    },
+                                    "marital_status": {
+                                        "type": "string",
+                                        "example": "single"
+                                    },
+                                    "occupation": {
+                                        "type": "string",
+                                        "example": "Engineer"
+                                    },
+                                    "family_id": {
+                                        "type": "string",
+                                        "example": "28c63b37-65ad-447e-914c-63779fbc412b"
+                                    },
+                                    "is_family_head": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "zone_id": {
+                                        "type": "string",
+                                        "example": "6f555b38-818d-4d03-be66-466ebc352f84"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active"
+                                    },
+                                    "date_joined": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-05-15"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "New member"
+                                    },
+
+                                    "primary_phone": {
+                                        "type": "string",
+                                        "example": "+2348012345678"
+                                    },
+                                    "whatsapp_number": {
+                                        "type": "string",
+                                        "example": "+2348012345678"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "john@example.com"
+                                    },
+                                    "address_line1": {
+                                        "type": "string",
+                                        "example": "12 Church Street"
+                                    },
+                                    "address_line2": {
+                                        "type": "string",
+                                        "example": "Lagos"
+                                    },
+                                    "lga": {
+                                        "type": "string",
+                                        "example": "Ikeja"
+                                    },
+
+                                    "society_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        },
+                                        "example": ["3ebabf15-f971-4c5a-9ecf-d169b6845762",
+                                            "3ebabf15-f971-4c5a-9ecf-d169b6845762"
+                                        ]
+                                    },
+
+                                    "sacraments": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "example": "baptism"
+                                                },
+                                                "date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2010-04-12"
+                                                },
+                                                "church": {
+                                                    "type": "string",
+                                                    "example": "St. Ferdinand Parish"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Member created successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+
+        "/v1/members/{id}": {
+            "get": {
+                "tags": ["Members"],
+                "summary": "Get single member",
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Member retrieved successfully"
+                    },
+                    "404": {
+                        "description": "Member not found"
+                    }
+                }
+            },
+
+            "put": {
+                "tags": ["Members"],
+                "summary": "Update member",
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "7a321845-e3cf-4d6c-b616-183ac5c40fa2"
+                    }
+                }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "John"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Doe"
+                                    },
+                                    "other_name": {
+                                        "type": "string",
+                                        "example": "Michael"
+                                    },
+                                    "baptismal_name": {
+                                        "type": "string",
+                                        "example": "Peter"
+                                    },
+                                    "date_of_birth": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "1995-05-20"
+                                    },
+                                    "gender": {
+                                        "type": "string",
+                                        "example": "male"
+                                    },
+                                    "marital_status": {
+                                        "type": "string",
+                                        "example": "single"
+                                    },
+                                    "occupation": {
+                                        "type": "string",
+                                        "example": "Engineer"
+                                    },
+
+                                    "family_id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "28c63b37-65ad-447e-914c-63779fbc412b"
+                                    },
+                                    "is_family_head": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "zone_id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "6f555b38-818d-4d03-be66-466ebc352f84"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active"
+                                    },
+                                    "date_joined": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-05-15"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Updated member profile"
+                                    },
+
+                                    "primary_phone": {
+                                        "type": "string",
+                                        "example": "+2348012345678"
+                                    },
+                                    "whatsapp_number": {
+                                        "type": "string",
+                                        "example": "+2348012345678"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "john.doe@example.com"
+                                    },
+                                    "address_line1": {
+                                        "type": "string",
+                                        "example": "12 Church Street"
+                                    },
+                                    "address_line2": {
+                                        "type": "string",
+                                        "example": "Ikeja"
+                                    },
+                                    "lga": {
+                                        "type": "string",
+                                        "example": "Ikeja"
+                                    },
+
+                                    "society_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "example": [
+                                            "55599c16-7b52-43d0-ae1d-34bf57fc81eb",
+                                            "a3cae38c-dd16-41e0-8bb8-f77dc4697bdb"
+                                        ]
+                                    },
+
+                                    "sacraments": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "example": "baptism"
+                                                },
+                                                "date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2010-04-12"
+                                                },
+                                                "church": {
+                                                    "type": "string",
+                                                    "example": "St. Ferdinand Parish"
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                }
+                            },
+
+                            "example": {
+                                "first_name": "John",
+                                "last_name": "Doe",
+                                "other_name": "Michael",
+                                "baptismal_name": "Peter",
+                                "date_of_birth": "1995-05-20",
+                                "gender": "male",
+                                "marital_status": "single",
+                                "occupation": "Engineer",
+                                "family_id": "28c63b37-65ad-447e-914c-63779fbc412b",
+                                "is_family_head": false,
+                                "zone_id": "6f555b38-818d-4d03-be66-466ebc352f84",
+                                "status": "active",
+                                "date_joined": "2026-05-15",
+                                "notes": "Updated member profile",
+
+                                "primary_phone": "+2348012345678",
+                                "whatsapp_number": "+2348012345678",
+                                "email": "john.doe@example.com",
+                                "address_line1": "12 Church Street",
+                                "address_line2": "Ikeja",
+                                "lga": "Ikeja",
+
+                                "society_ids": [
+                                    "55599c16-7b52-43d0-ae1d-34bf57fc81eb",
+                                    "a3cae38c-dd16-41e0-8bb8-f77dc4697bdb"
+                                ],
+
+                                "sacraments": [{
+                                        "type": "baptism",
+                                        "date": "2010-04-12",
+                                        "church": "St. Ferdinand Parish"
+                                    },
+                                    {
+                                        "type": "confirmation",
+                                        "date": "2015-06-20",
+                                        "church": "St. Mary's Cathedral"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+
+                "responses": {
+                    "200": {
+                        "description": "Member updated successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "404": {
+                        "description": "Member not found"
+                    }
+                }
+            },
+
+            "delete": {
+                "tags": ["Members"],
+                "summary": "Delete member",
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Member deleted successfully"
+                    },
+                    "404": {
+                        "description": "Member not found"
+                    }
+                }
+            }
+        },
+
+        "/v1/members/{id}/photo": {
+            "post": {
+                "tags": ["Members"],
+                "summary": "Upload member photo",
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "photo": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Photo uploaded successfully"
+                    }
+                }
+            }
+        },
+
+        "/v1/members/{id}/giving": {
+            "get": {
+                "tags": ["Members"],
+                "summary": "Get member giving history",
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Member giving retrieved successfully"
+                    }
+                }
+            }
+        },
+
+        "/v1/members/{id}/audit-log": {
+            "get": {
+                "tags": ["Members"],
+                "summary": "Get member audit logs",
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Audit log retrieved successfully"
+                    }
+                }
+            }
+        },
+
+        "/v1/members/export": {
+            "get": {
+                "tags": ["Members"],
+                "summary": "Export members",
+                "parameters": [{
+                    "name": "format",
+                    "in": "query",
+                    "required": false,
+                    "schema": {
+                        "type": "string",
+                        "example": "excel"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Export generated successfully"
+                    }
+                }
+            }
+        },
+        "/v1/families": {
+            "get": {
+                "tags": ["Families"],
+                "summary": "Get all families",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "parameters": [{
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 25
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "John Family"
+                        }
+                    },
+                    {
+                        "name": "zone_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "uuid-zone-id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Families retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "message": "Families retrieved successfully.",
+                                    "data": [{
+                                        "id": "uuid",
+                                        "name": "Doe Family",
+                                        "zone": {
+                                            "id": "uuid",
+                                            "name": "Zone A"
+                                        },
+                                        "members_count": 5
+                                    }]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+
+            "post": {
+                "tags": ["Families"],
+                "summary": "Create family",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "name": "Doe Family",
+                                "zone_id": "uuid-zone-id",
+                                "notes": "New family record"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Family created successfully",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "message": "Family created successfully.",
+                                    "data": {
+                                        "id": "uuid",
+                                        "name": "Doe Family"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        "/v1/families/{id}": {
+            "get": {
+                "tags": ["Families"],
+                "summary": "Get single family",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string",
+                        "example": "uuid-family-id"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Family retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "message": "Family retrieved successfully.",
+                                    "data": {
+                                        "id": "uuid",
+                                        "name": "Doe Family",
+                                        "zone": {
+                                            "id": "uuid",
+                                            "name": "Zone A"
+                                        },
+                                        "members": [{
+                                            "id": "uuid",
+                                            "first_name": "John",
+                                            "last_name": "Doe",
+                                            "contactDetail": {
+                                                "primary_phone": "08012345678",
+                                                "email": "john@example.com"
+                                            }
+                                        }],
+                                        "giving_summary": {
+                                            "year": 2026,
+                                            "total_this_year": 250000
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+
+            "put": {
+                "tags": ["Families"],
+                "summary": "Update family",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "name": "Updated Family Name",
+                                "zone_id": "uuid-zone-id",
+                                "notes": "Updated notes"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Family updated successfully"
+                    }
+                }
+            },
+
+            "delete": {
+                "tags": ["Families"],
+                "summary": "Delete family",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Family deleted successfully"
+                    }
+                }
+            }
+        },
+
+        "/v1/families/{id}/members": {
+            "post": {
+                "tags": ["Families"],
+                "summary": "Assign member to family",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "member_id": "uuid-member-id",
+                                "is_family_head": true
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Member assigned successfully"
+                    }
+                }
+            }
+        },
+
+        "/v1/families/{id}/members/{memberId}": {
+            "delete": {
+                "tags": ["Families"],
+                "summary": "Remove member from family",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "parameters": [{
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "memberId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Member removed successfully"
+                    }
+                }
+            }
+        },
+
+        "/v1/families/{id}/giving": {
+            "get": {
+                "tags": ["Families"],
+                "summary": "Get family giving summary",
+                "security": [{
+                    "bearerAuth": []
+                }],
+                "parameters": [{
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "string"
+                    }
+                }],
+                "responses": {
+                    "200": {
+                        "description": "Family giving retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "message": "Family giving retrieved successfully.",
+                                    "data": {
+                                        "family_id": "uuid",
+                                        "year": 2026,
+                                        "totals": {
+                                            "offerings": 100000,
+                                            "tithes": 50000,
+                                            "donations": 20000,
+                                            "pledges": 15000,
+                                            "grand_total": 185000
+                                        },
+                                        "members": [{
+                                            "member_id": "uuid",
+                                            "full_name": "John Doe",
+                                            "offerings": 50000,
+                                            "tithes": 20000,
+                                            "donations": 10000,
+                                            "pledges": 5000,
+                                            "total": 85000
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    },
+    "security": [{
+        "bearerAuth": []
+    }],
+    "tags": [{
+        "name": "Health",
+        "description": "Health"
+    }]
+}

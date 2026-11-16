@@ -30,13 +30,13 @@ class RolePermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'api']);
         }
 
-        $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        $superAdmin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'api']);
         $superAdmin->syncPermissions(Permission::all());
 
-        $financeOfficer = Role::firstOrCreate(['name' => 'finance_officer', 'guard_name' => 'web']);
+        $financeOfficer = Role::firstOrCreate(['name' => 'finance_officer', 'guard_name' => 'api']);
         $financeOfficer->syncPermissions([
             'finance.view', 'finance.create', 'finance.edit', 'finance.export',
             'reports.view', 'reports.export',
@@ -44,7 +44,7 @@ class RolePermissionSeeder extends Seeder
             'portal.access',
         ]);
 
-        $secretary = Role::firstOrCreate(['name' => 'secretary', 'guard_name' => 'web']);
+        $secretary = Role::firstOrCreate(['name' => 'secretary', 'guard_name' => 'api']);
         $secretary->syncPermissions([
             'members.view', 'members.create', 'members.edit', 'members.export',
             'families.view', 'families.create', 'families.edit',
@@ -55,7 +55,7 @@ class RolePermissionSeeder extends Seeder
             'portal.access',
         ]);
 
-        $societyLeader = Role::firstOrCreate(['name' => 'society_leader', 'guard_name' => 'web']);
+        $societyLeader = Role::firstOrCreate(['name' => 'society_leader', 'guard_name' => 'api']);
         $societyLeader->syncPermissions([
             'societies.view', 'societies.manage_members',
             'members.view',
@@ -64,7 +64,7 @@ class RolePermissionSeeder extends Seeder
             'portal.access',
         ]);
 
-        $parishioner = Role::firstOrCreate(['name' => 'parishioner', 'guard_name' => 'web']);
+        $parishioner = Role::firstOrCreate(['name' => 'parishioner', 'guard_name' => 'api']);
         $parishioner->syncPermissions([
             'portal.access',
             'events.view',

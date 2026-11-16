@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('communication_logs', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->enum('type', ['email', 'sms']);
             $table->string('subject')->nullable();
             $table->text('message');
@@ -21,11 +22,18 @@ return new class extends Migration
             $table->timestamp('sent_at')->nullable();
             $table->timestamps();
 
-            if (Schema::hasTable('users')) {
-                $table->foreignId('sent_by')->constrained('users')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('sent_by');
-            }
+              // ✅ FIXED UUID FK
+            $table->uuid('sent_by');
+            $table->foreign('sent_by')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('users')) {
+            //     $table->foreignId('sent_by')->constrained('users')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('sent_by');
+            // }
         });
     }
 

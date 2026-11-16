@@ -4,9 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class SocietyDue extends Model
 {
+
+    protected $keyType = 'string';
+    public $incrementing = false;
     protected $fillable = [
         'society_id',
         'member_id',
@@ -16,6 +20,17 @@ class SocietyDue extends Model
         'paid_at',
         'recorded_by',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (!$model->id) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

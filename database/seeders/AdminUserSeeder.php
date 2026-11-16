@@ -10,16 +10,31 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@stferdinand.com'],
-            [
-                'name' => 'Parish Administrator',
-                'password' => Hash::make('Admin@1234'),
-                'is_active' => true,
-                'must_change_password' => true,
-            ]
-        );
+        $roles = [
+            'super_admin',
+            'secretary',
+            'finance_officer',
+            'society_leader',
+            'parishioner',
+        ];
 
-        $admin->assignRole('super_admin');
+        foreach ($roles as $role) {
+            $user = User::firstOrCreate(
+                [
+                    'email' => "{$role}@stferdinand.com",
+                ],
+                [
+                    'name' => ucwords(str_replace('_', ' ', $role)),
+                    'password' => Hash::make('Password@123'),
+                    'is_active' => true,
+                    'must_change_password' => true,
+                ]
+            );
+
+            // Assign role (avoid duplicate assignment)
+            if (!$user->hasRole($role)) {
+                $user->assignRole($role);
+            }
+        }
     }
 }

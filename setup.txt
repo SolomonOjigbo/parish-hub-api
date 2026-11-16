@@ -1,0 +1,28 @@
+
+php artisan tinker
+DB::connection()->getPdo();
+
+Assign role to user:
+$user->assignRole('parishioner');
+
+Check role:
+$user->hasRole('admin');
+
+Check permission:
+$user->can('finance.view');
+
+
+php artisan migrate:fresh --seed
+
+Your relationship must match too
+Member model:
+public function zone()
+{
+    return $this->belongsTo(Zone::class, 'zone_id', 'id');
+}
+
+
+php artisan l5-swagger:generate
+
+
+

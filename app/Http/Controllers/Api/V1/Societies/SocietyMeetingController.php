@@ -93,7 +93,7 @@ class SocietyMeetingController extends BaseApiController implements HasMiddlewar
     /**
      * POST /api/v1/societies/{id}/meetings/{meetingId}/minutes
      */
-    public function uploadMinutes(Request $request, int $id, int $meetingId): JsonResponse
+    public function uploadMinutesOld(Request $request, int $id, int $meetingId): JsonResponse
     {
         $request->validate([
             'minutes' => ['required', 'file', 'mimes:pdf', 'max:5120'],
@@ -123,5 +123,50 @@ class SocietyMeetingController extends BaseApiController implements HasMiddlewar
             ],
             'Minutes uploaded successfully.'
         );
+    }
+
+    public function uploadMinutes(Request $request, int $id, int $meetingId): JsonResponse
+    {
+        $request->validate([
+            'minutes' => ['required', 'file', 'mimes:pdf', 'max:5120'],
+        ]);
+
+        $meeting = SocietyMeeting::where('society_id', $id)
+            ->where('id', $meetingId)
+            ->firstOrFail();
+
+        try {
+            // ✅ Delete old file if exists
+            if ($meeting->minutes_path && file_exists(public_path($meeting->minutes_path))) {
+                unlink(public_path($meeting->minutes_path));
+            }
+
+            // ✅ Upload new file
+            $file = $request->file('minutes');
+            $filename = 'meeting-' . $meeting->id . '-' . now()->format('YmdHis') . '.pdf';
+
+            $file->move(
+                public_path("upload/documents/minutes/{$id}"),
+                $filename
+            );
+
+            $path = "upload/documents/minutes/{$id}/{$filename}";
+
+            // ✅ Save to DB
+            $meeting->update([
+                'minutes_path'   => $path,
+                'minutes_status' => 'filed',
+            ]);
+
+            return $this->success([
+                'minutes_path' => $path,
+                'minutes_url'  => asset($path),
+            ], 'Minutes uploaded successfully.');
+        } catch (\Throwable $e) {
+            return $this->error(
+                config('app.debug') ? $e->getMessage() : 'Upload failed',
+                500
+            );
+        }
     }
 }

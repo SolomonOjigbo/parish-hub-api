@@ -11,10 +11,27 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Member extends Model
 {
     use HasFactory, SoftDeletes;
+
+    protected $keyType = 'string';
+    public $incrementing = false; // disables auto-increment
+
+    protected $primaryKey = 'id';
+    
+    protected static function boot(): void
+    {
+        parent::boot();
+        static::creating(function ($model) {
+            if (!$model->id) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
+
 
     protected $fillable = [
         'membership_number',
@@ -46,10 +63,14 @@ class Member extends Model
         ];
     }
 
-    public function family(): BelongsTo
+    public function familyold(): BelongsTo
     {
         return $this->belongsTo(Family::class);
     }
+    public function family(): BelongsTo
+{
+    return $this->belongsTo(Family::class, 'family_id', 'id');
+}
 
     public function zone(): BelongsTo
     {
@@ -81,12 +102,20 @@ class Member extends Model
         return $this->hasMany(EventAttendance::class);
     }
 
-    public function societies(): BelongsToMany
+    public function societiesold(): BelongsToMany
     {
         return $this->belongsToMany(Society::class, 'society_members')
             ->withPivot(['role', 'joined_at', 'is_active'])
             ->withTimestamps();
     }
+
+public function societies(): BelongsToMany
+{
+    return $this->belongsToMany(Society::class, 'society_members')
+        ->using(\App\Models\SocietyMember::class)
+        ->withPivot(['id', 'role', 'joined_at', 'is_active'])
+        ->withTimestamps();
+}
 
     protected function fullName(): Attribute
     {
@@ -112,14 +141,22 @@ class Member extends Model
         });
     }
 
-    protected function photoUrl(): Attribute
-    {
-        return Attribute::get(function (): ?string {
-            if (!$this->photo_path) {
-                return null;
-            }
+    // protected function photoUrl(): Attribute
+    // {
+    //     return Attribute::get(function (): ?string {
+    //         if (!$this->photo_path) {
+    //             return null;
+    //         }
 
-            return Storage::url($this->photo_path);
-        });
+    //         return Storage::url($this->photo_path);
+    //     });
+    // }
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo_path
+            ? asset($this->photo_path)
+            : null;
     }
+    
 }

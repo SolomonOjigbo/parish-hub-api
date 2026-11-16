@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('committee_action_items', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->string('title');
             $table->text('description')->nullable();
             $table->date('due_date')->nullable();
@@ -17,17 +18,33 @@ return new class extends Migration
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
 
-            if (Schema::hasTable('committees')) {
-                $table->foreignId('committee_id')->constrained('committees')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('committee_id');
-            }
+              // ✅ UUID foreign keys
 
-            if (Schema::hasTable('members')) {
-                $table->foreignId('assigned_to_member_id')->nullable()->constrained('members')->nullOnDelete();
-            } else {
-                $table->unsignedBigInteger('assigned_to_member_id')->nullable();
-            }
+            $table->uuid('committee_id');
+
+            $table->foreign('committee_id')
+                ->references('id')
+                ->on('committees')
+                ->cascadeOnDelete();
+
+            $table->uuid('assigned_to_member_id')->nullable();
+
+            $table->foreign('assigned_to_member_id')
+                ->references('id')
+                ->on('members')
+                ->nullOnDelete();
+
+            // if (Schema::hasTable('committees')) {
+            //     $table->foreignId('committee_id')->constrained('committees')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('committee_id');
+            // }
+
+            // if (Schema::hasTable('members')) {
+            //     $table->foreignId('assigned_to_member_id')->nullable()->constrained('members')->nullOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('assigned_to_member_id')->nullable();
+            // }
         });
     }
 

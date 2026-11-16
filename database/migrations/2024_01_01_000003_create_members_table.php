@@ -9,7 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('members', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->string('membership_number')->unique();
             $table->string('first_name');
             $table->string('last_name');
@@ -27,17 +28,34 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            if (Schema::hasTable('families')) {
-                $table->foreignId('family_id')->nullable()->constrained('families')->nullOnDelete();
-            } else {
-                $table->unsignedBigInteger('family_id')->nullable();
-            }
+            // UUID relationships
+            $table->uuid('family_id')->nullable();
+            $table->foreign('family_id')->references('id')->on('families')->nullOnDelete();
 
-            if (Schema::hasTable('zones')) {
-                $table->foreignId('zone_id')->nullable()->constrained('zones')->nullOnDelete();
-            } else {
-                $table->unsignedBigInteger('zone_id')->nullable();
-            }
+            $table->uuid('zone_id')->nullable();
+            $table->foreign('zone_id')->references('id')->on('zones')->nullOnDelete();
+
+            // if (Schema::hasTable('families')) {
+            //     #$table->foreignId('family_id')->nullable()->constrained('families')->nullOnDelete();
+            //     $table->uuid('family_id')->nullable();
+            //     $table->foreign('family_id')
+            //         ->references('id')
+            //         ->on('families')
+            //         ->nullOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('family_id')->nullable();
+            // }
+
+            // if (Schema::hasTable('zones')) {
+            //     #$table->foreignId('zone_id')->nullable()->constrained('zones')->nullOnDelete();
+            //     $table->uuid('zone_id')->nullable();
+            //     $table->foreign('zone_id')
+            //         ->references('id')
+            //         ->on('zones')
+            //         ->nullOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('zone_id')->nullable();
+            // }
         });
     }
 

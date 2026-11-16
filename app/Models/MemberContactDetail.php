@@ -4,9 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class MemberContactDetail extends Model
 {
+
+    protected $keyType = 'string';
+    public $incrementing = false;
     protected $fillable = [
         'member_id',
         'primary_phone',
@@ -17,6 +21,17 @@ class MemberContactDetail extends Model
         'lga',
         'state',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (!$model->id) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
 
     public function member(): BelongsTo
     {

@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'password.changed' => EnsurePasswordChanged::class,
         ]);
+        $middleware->append(\App\Http\Middleware\ForceJsonResponse::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('member_contact_details', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
+            $table->uuid('member_id')->unique(); 
             $table->string('primary_phone');
             $table->string('whatsapp_number')->nullable();
             $table->string('email')->nullable();
@@ -19,11 +21,16 @@ return new class extends Migration
             $table->string('state')->default('Lagos');
             $table->timestamps();
 
-            if (Schema::hasTable('members')) {
-                $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
-            } else {
-                $table->unsignedBigInteger('member_id');
-            }
+             $table->foreign('member_id')
+                ->references('id')
+                ->on('members')
+                ->cascadeOnDelete();
+
+            // if (Schema::hasTable('members')) {
+            //     $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('member_id');
+            // }
         });
     }
 

@@ -13,13 +13,10 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Routing\Controllers\HasMiddleware;
-use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Laravel\Facades\Image;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Illuminate\Support\Str;
 
 class MemberController extends BaseApiController
 {
@@ -27,122 +24,190 @@ class MemberController extends BaseApiController
     /**
      * GET /api/v1/members
      */
+  
     public function index(Request $request): JsonResponse
-    {
-        $perPage   = (int) $request->query('per_page', 25);
-        $sort      = (string) $request->query('sort', 'last_name');
-        $direction = strtolower((string) $request->query('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+{
+    $perPage = (int) $request->query('per_page', 25);
 
-        $allowedSorts = ['last_name', 'first_name', 'membership_number', 'date_joined', 'created_at'];
-        if (!in_array($sort, $allowedSorts, true)) {
-            $sort = 'last_name';
-        }
+    // -----------------------------
+    // SAFE SORTING (whitelist map)
+    // -----------------------------
+    $sortMap = [
+        'last_name'         => 'last_name',
+        'first_name'        => 'first_name',
+        'membership_number' => 'membership_number',
+        'date_joined'       => 'date_joined',
+        'created_at'        => 'created_at',
+    ];
 
-        $query = Member::query()
-            ->with(['contactDetail', 'family', 'zone', 'societies'])
-            ->when($request->filled('search'), function ($q) use ($request): void {
-                $search = '%' . $request->query('search') . '%';
-                $q->where(function ($inner) use ($search): void {
-                    $inner->where('first_name', 'like', $search)
-                        ->orWhere('last_name', 'like', $search)
-                        ->orWhere('other_name', 'like', $search)
-                        ->orWhere('membership_number', 'like', $search)
-                        ->orWhereHas('contactDetail', function ($c) use ($search): void {
-                            $c->where('primary_phone', 'like', $search)
-                                ->orWhere('email', 'like', $search);
-                        });
-                });
-            })
-            ->when($request->filled('society_id'), function ($q) use ($request): void {
-                $q->whereHas('societies', function ($s) use ($request): void {
-                    $s->where('societies.id', $request->query('society_id'));
-                });
-            })
-            ->when($request->filled('status'), fn($q) => $q->where('status', $request->query('status')))
-            ->when($request->filled('zone_id'), fn($q) => $q->where('zone_id', $request->query('zone_id')))
-            ->when($request->filled('from'), fn($q) => $q->whereDate('date_joined', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn($q) => $q->whereDate('date_joined', '<=', $request->query('to')))
-            ->orderBy($sort, $direction);
+    $sort = $sortMap[$request->query('sort', 'last_name')] ?? 'last_name';
+    $direction = $request->query('direction') === 'desc' ? 'desc' : 'asc';
 
-        $paginator = $query->paginate($perPage);
+    // -----------------------------
+    // BASE QUERY (optimized eager loading)
+    // -----------------------------
+    $query = Member::query()->with([
+        'contactDetail:id,member_id,primary_phone,email',
+        'family:id,name',
+        'zone:id,name',
+        'societies:id,name',
+    ]);
 
-        return $this->paginated(
-            MemberResource::collection($paginator),
-            [
-                'current_page' => $paginator->currentPage(),
-                'per_page'     => $paginator->perPage(),
-                'total'        => $paginator->total(),
-                'last_page'    => $paginator->lastPage(),
-                'from'         => $paginator->firstItem(),
-                'to'           => $paginator->lastItem(),
-            ],
-            'Members retrieved successfully.'
-        );
+    // -----------------------------
+    // SEARCH FILTER
+    // -----------------------------
+    if ($search = $request->query('search')) {
+        $search = '%' . $search . '%';
+
+        $query->where(function ($q) use ($search) {
+            $q->where('first_name', 'like', $search)
+              ->orWhere('last_name', 'like', $search)
+              ->orWhere('other_name', 'like', $search)
+              ->orWhere('membership_number', 'like', $search)
+              ->orWhereHas('contactDetail', function ($c) use ($search) {
+                  $c->where('primary_phone', 'like', $search)
+                    ->orWhere('email', 'like', $search);
+              });
+        });
     }
+
+    // -----------------------------
+    // SOCIETY FILTER
+    // -----------------------------
+    if ($request->filled('society_id')) {
+        $query->whereHas('societies', function ($q) use ($request) {
+            $q->where('societies.id', $request->society_id);
+        });
+    }
+
+    // -----------------------------
+    // SIMPLE COLUMN FILTERS
+    // -----------------------------
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+
+    if ($request->filled('zone_id')) {
+        $query->where('zone_id', $request->zone_id);
+    }
+
+    // -----------------------------
+    // DATE RANGE FILTER
+    // -----------------------------
+    if ($request->filled('from')) {
+        $query->whereDate('date_joined', '>=', $request->from);
+    }
+
+    if ($request->filled('to')) {
+        $query->whereDate('date_joined', '<=', $request->to);
+    }
+
+    // -----------------------------
+    // ORDERING
+    // -----------------------------
+    $query->orderBy($sort, $direction);
+
+    // -----------------------------
+    // PAGINATION
+    // -----------------------------
+    $paginator = $query->paginate($perPage);
+
+    return $this->paginated(
+        MemberResource::collection($paginator),
+        $paginator->toArray(),
+        'Members retrieved successfully.'
+    );
+}
 
     /**
      * POST /api/v1/members
      */
-    public function store(StoreMemberRequest $request): JsonResponse
-    {
-        $data = $request->validated();
+public function store(StoreMemberRequest $request): JsonResponse
+{
+    $data = $request->validated();
 
-        $member = DB::transaction(function () use ($data, $request): Member {
+    try {
+        $member = DB::transaction(function () use ($data, $request) {
+
+            // -------------------------
+            // SAFE MEMBERSHIP NUMBER
+            // -------------------------
             $member = Member::create([
-                'first_name'     => $data['first_name'],
-                'last_name'      => $data['last_name'],
-                'other_name'     => $data['other_name']     ?? null,
-                'baptismal_name' => $data['baptismal_name'] ?? null,
-                'date_of_birth'  => $data['date_of_birth']  ?? null,
-                'gender'         => $data['gender'],
-                'marital_status' => $data['marital_status'],
-                'occupation'     => $data['occupation']     ?? null,
-                'family_id'      => $data['family_id']      ?? null,
-                'is_family_head' => $data['is_family_head'] ?? false,
-                'zone_id'        => $data['zone_id']        ?? null,
-                'status'         => $data['status']         ?? 'active',
-                'date_joined'    => $data['date_joined']    ?? now()->toDateString(),
-                'notes'          => $data['notes']          ?? null,
+                'membership_number' => $data['membership_number'] ?? ('MEM-' . strtoupper(uniqid())),
+                'first_name'        => $data['first_name'],
+                'last_name'         => $data['last_name'],
+                'other_name'        => $data['other_name'] ?? null,
+                'baptismal_name'    => $data['baptismal_name'] ?? null,
+                'date_of_birth'     => $data['date_of_birth'] ?? null,
+                'gender'            => $data['gender'],
+                'marital_status'    => $data['marital_status'],
+                'occupation'        => $data['occupation'] ?? null,
+                'family_id'         => $data['family_id'] ?? null,
+                'is_family_head'    => $data['is_family_head'] ?? false,
+                'zone_id'           => $data['zone_id'] ?? null,
+                'status'            => $data['status'] ?? 'active',
+                'date_joined'       => $data['date_joined'] ?? now()->toDateString(),
+                'notes'             => $data['notes'] ?? null,
             ]);
 
+            // -------------------------
+            // CONTACT (SAFE)
+            // -------------------------
             $member->contactDetail()->create([
                 'primary_phone'   => $data['primary_phone'],
                 'whatsapp_number' => $data['whatsapp_number'] ?? null,
-                'email'           => $data['email']           ?? null,
-                'address_line1'   => $data['address_line1']   ?? null,
-                'address_line2'   => $data['address_line2']   ?? null,
-                'lga'             => $data['lga']             ?? null,
+                'email'           => $data['email'] ?? null,
+                'address_line1'   => $data['address_line1'] ?? null,
+                'address_line2'   => $data['address_line2'] ?? null,
+                'lga'             => $data['lga'] ?? null,
             ]);
 
-            if (!empty($data['society_ids'])) {
-                $sync = [];
-                foreach ($data['society_ids'] as $sid) {
-                    $sync[$sid] = [
-                        'role'      => 'member',
-                        'joined_at' => now()->toDateString(),
-                        'is_active' => true,
-                    ];
-                }
-                $member->societies()->sync($sync);
-            }
+            // -------------------------
+            // SOCIETIES (SAFE SYNC)
+            // -------------------------
+       // -------------------------
+// SOCIETIES (FIXED UUID SAFE)
+// -------------------------
+if (!empty($data['society_ids'])) {
 
+    $validSocieties = \App\Models\Society::whereIn('id', $data['society_ids'])
+        ->pluck('id');
+
+    $member->societies()->detach();
+
+    foreach ($validSocieties as $societyId) {
+        $member->societies()->attach($societyId, [
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'role' => 'member',
+            'joined_at' => now(),
+            'is_active' => true,
+        ]);
+    }
+}
+
+            // -------------------------
+            // SACRAMENTS (SAFE LOOP)
+            // -------------------------
             if (!empty($data['sacraments'])) {
-                foreach ($data['sacraments'] as $sac) {
+                foreach ($data['sacraments'] as $sacrament) {
                     $member->sacramentalRecords()->create([
-                        'type'   => $sac['type'],
-                        'date'   => $sac['date']   ?? null,
-                        'church' => $sac['church'] ?? null,
+                        'type'   => $sacrament['type'] ?? null,
+                        'date'   => $sacrament['date'] ?? null,
+                        'church' => $sacrament['church'] ?? null,
                     ]);
                 }
             }
 
+            // -------------------------
+            // AUDIT LOG (SAFE JSON)
+            // -------------------------
             AuditLog::create([
                 'user_id'        => $request->user()?->id,
                 'action'         => 'member.created',
                 'auditable_type' => Member::class,
                 'auditable_id'   => $member->id,
                 'old_values'     => null,
-                'new_values'     => $member->toArray(),
+                'new_values'     => $member->fresh()->toArray(),
                 'ip_address'     => $request->ip(),
                 'user_agent'     => $request->userAgent(),
             ]);
@@ -150,19 +215,34 @@ class MemberController extends BaseApiController
             return $member;
         });
 
-        $member->load(['contactDetail', 'family', 'zone', 'societies', 'sacramentalRecords']);
+        $member->load([
+            'contactDetail',
+            'family',
+            'zone',
+            'societies',
+            'sacramentalRecords'
+        ]);
 
         return $this->success(
             new MemberResource($member),
             'Member created successfully.',
             Response::HTTP_CREATED
         );
+
+    } catch (\Throwable $e) {
+         return response()->json([
+        'success' => false,
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+    ], 500);
     }
+}
 
     /**
      * GET /api/v1/members/{id}
      */
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $member = Member::with([
             'contactDetail',
@@ -182,29 +262,51 @@ class MemberController extends BaseApiController
     /**
      * PUT /api/v1/members/{id}
      */
-    public function update(UpdateMemberRequest $request, int $id): JsonResponse
-    {
+   public function update(UpdateMemberRequest $request, string $id): JsonResponse
+{
+    try {
         $member = Member::findOrFail($id);
         $data   = $request->validated();
 
         $member = DB::transaction(function () use ($member, $data, $request): Member {
+
             $oldValues = $member->toArray();
 
-            $memberFields = array_intersect_key($data, array_flip([
-                'first_name', 'last_name', 'other_name', 'baptismal_name',
-                'date_of_birth', 'gender', 'marital_status', 'occupation',
-                'family_id', 'is_family_head', 'zone_id', 'status',
-                'date_joined', 'notes',
-            ]));
+            // -------------------------
+            // MEMBER UPDATE
+            // -------------------------
+            $memberFields = collect($data)->only([
+                'first_name',
+                'last_name',
+                'other_name',
+                'baptismal_name',
+                'date_of_birth',
+                'gender',
+                'marital_status',
+                'occupation',
+                'family_id',
+                'is_family_head',
+                'zone_id',
+                'status',
+                'date_joined',
+                'notes',
+            ])->toArray();
 
             if (!empty($memberFields)) {
                 $member->update($memberFields);
             }
 
-            $contactFields = array_intersect_key($data, array_flip([
-                'primary_phone', 'whatsapp_number', 'email',
-                'address_line1', 'address_line2', 'lga',
-            ]));
+            // -------------------------
+            // CONTACT UPDATE
+            // -------------------------
+            $contactFields = collect($data)->only([
+                'primary_phone',
+                'whatsapp_number',
+                'email',
+                'address_line1',
+                'address_line2',
+                'lga',
+            ])->toArray();
 
             if (!empty($contactFields)) {
                 $member->contactDetail()->updateOrCreate(
@@ -213,28 +315,43 @@ class MemberController extends BaseApiController
                 );
             }
 
-            if (array_key_exists('society_ids', $data) && is_array($data['society_ids'])) {
-                $sync = [];
-                foreach ($data['society_ids'] as $sid) {
-                    $sync[$sid] = [
-                        'role'      => 'member',
-                        'joined_at' => now()->toDateString(),
+            // -------------------------
+            // SOCIETIES (UUID SAFE)
+            // -------------------------
+            if (array_key_exists('society_ids', $data)) {
+
+                $validSocieties = \App\Models\Society::whereIn('id', $data['society_ids'] ?? [])
+                    ->pluck('id');
+
+                // clear old
+                $member->societies()->detach();
+
+                foreach ($validSocieties as $sid) {
+                    $member->societies()->attach($sid, [
+                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'role' => 'member',
+                        'joined_at' => now(),
                         'is_active' => true,
-                    ];
+                    ]);
                 }
-                $member->societies()->sync($sync);
             }
 
+            // -------------------------
+            // SACRAMENTS (UUID SAFE)
+            // -------------------------
             if (!empty($data['sacraments'])) {
                 foreach ($data['sacraments'] as $sac) {
                     $member->sacramentalRecords()->create([
-                        'type'   => $sac['type'],
-                        'date'   => $sac['date']   ?? null,
+                        'type'   => $sac['type'] ?? null,
+                        'date'   => $sac['date'] ?? null,
                         'church' => $sac['church'] ?? null,
                     ]);
                 }
             }
 
+            // -------------------------
+            // AUDIT
+            // -------------------------
             AuditLog::create([
                 'user_id'        => $request->user()?->id,
                 'action'         => 'member.updated',
@@ -249,22 +366,47 @@ class MemberController extends BaseApiController
             return $member;
         });
 
-        $member->load(['contactDetail', 'family', 'zone', 'societies', 'sacramentalRecords']);
+        $member->load([
+            'contactDetail',
+            'family',
+            'zone',
+            'societies',
+            'sacramentalRecords'
+        ]);
 
         return $this->success(
             new MemberResource($member),
             'Member updated successfully.'
         );
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ], 500);
     }
+}
 
     /**
      * DELETE /api/v1/members/{id}
      */
-    public function destroy(Request $request, int $id): JsonResponse
-    {
+ public function destroy(Request $request, string $id): JsonResponse
+{
+    try {
         $member = Member::findOrFail($id);
 
-        DB::transaction(function () use ($member, $request): void {
+        if (!$member) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete member with event attendances.',
+            ], 400);
+        }
+        
+
+        DB::transaction(function () use ($member, $request) {
+
             $oldValues = $member->toArray();
 
             $member->delete();
@@ -281,41 +423,91 @@ class MemberController extends BaseApiController
             ]);
         });
 
-        return $this->success(null, 'Member deleted', 200);
+        return $this->success(null, 'Member deleted successfully');
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 500);
     }
+}
 
     /**
      * POST /api/v1/members/{id}/photo
      */
-    public function uploadPhoto(Request $request, int $id): JsonResponse
-    {
-        $request->validate([
-            'photo' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
-        ]);
 
+public function uploadPhoto(Request $request, string $id): JsonResponse
+{
+    $request->validate([
+        'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+    ]);
+
+    DB::beginTransaction();
+
+    try {
         $member = Member::findOrFail($id);
 
-        $path  = "photos/members/{$member->id}.jpg";
-        $image = Image::read($request->file('photo')->getRealPath());
-        $image->scaleDown(width: 800, height: 800);
+        // -------------------------
+        // DELETE OLD IMAGE
+        // -------------------------
+        if ($member->photo_path && file_exists(public_path($member->photo_path))) {
+            unlink(public_path($member->photo_path));
+        }
 
-        Storage::disk('public')->put($path, (string) $image->toJpeg());
+        // -------------------------
+        // CREATE FILE NAME
+        // -------------------------
+        $file = $request->file('photo');
 
-        $member->update(['photo_path' => $path]);
+        $filename = time() . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
 
-        return $this->success(
-            [
-                'photo_url'  => Storage::disk('public')->url($path),
-                'photo_path' => $path,
-            ],
-            'Photo uploaded successfully.'
-        );
+        $folder = public_path('upload/member/photos');
+
+        // -------------------------
+        // CREATE DIRECTORY IF NOT EXISTS
+        // -------------------------
+        if (!file_exists($folder)) {
+            mkdir($folder, 0755, true);
+        }
+
+        // -------------------------
+        // MOVE FILE (LIKE YOUR REGISTER METHOD)
+        // -------------------------
+        $file->move($folder, $filename);
+
+        $relativePath = 'upload/member/photos/' . $filename;
+
+        // -------------------------
+        // UPDATE DB
+        // -------------------------
+        $member->update([
+            'photo_path' => $relativePath,
+        ]);
+
+        DB::commit();
+
+        return $this->success([
+            'photo_url'  => asset($relativePath),
+            'photo_path' => $relativePath,
+        ], 'Photo uploaded successfully.');
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        return response()->json([
+            'success' => false,
+            'message' => config('app.debug') ? $e->getMessage() : 'Upload failed',
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ], 500);
     }
+}
 
     /**
      * GET /api/v1/members/{id}/giving
      */
-    public function giving(int $id): JsonResponse
+    public function giving(string $id): JsonResponse
     {
         $member = Member::findOrFail($id);
 
@@ -358,7 +550,7 @@ class MemberController extends BaseApiController
     /**
      * GET /api/v1/members/{id}/audit-log
      */
-    public function auditLog(int $id): JsonResponse
+    public function auditLog(string $id): JsonResponse
     {
         $member = Member::findOrFail($id);
 
@@ -369,7 +561,7 @@ class MemberController extends BaseApiController
 
         return $this->success($logs, 'Audit log retrieved successfully.');
     }
-
+ 
     /**
      * GET /api/v1/members/export
      */

@@ -19,7 +19,7 @@ use Illuminate\Http\Response;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
-
+ 
 class FamilyController extends BaseApiController implements HasMiddleware
 {
     /**
@@ -38,7 +38,7 @@ class FamilyController extends BaseApiController implements HasMiddleware
     /**
      * GET /api/v1/families
      */
-    public function index(Request $request): JsonResponse
+    public function indexold(Request $request): JsonResponse
     {
         $perPage = (int) $request->query('per_page', 25);
 
@@ -66,6 +66,38 @@ class FamilyController extends BaseApiController implements HasMiddleware
             'Families retrieved successfully.'
         );
     }
+    public function index(Request $request): JsonResponse
+{
+    try {
+        $perPage = (int) $request->query('per_page', 25);
+
+        $query = Family::query()
+            ->with(['zone', 'members'])
+            ->withCount('members')
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->query('search') . '%');
+            })
+            ->when($request->filled('zone_id'), fn($q) =>
+                $q->where('zone_id', $request->query('zone_id'))
+            )
+            ->orderBy('name');
+
+        $paginator = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => $paginator,
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ], 500);
+    }
+}
 
     /**
      * POST /api/v1/families
@@ -85,7 +117,7 @@ class FamilyController extends BaseApiController implements HasMiddleware
     /**
      * GET /api/v1/families/{id}
      */
-    public function show(int $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         $family = Family::with([
             'zone',
@@ -121,7 +153,7 @@ class FamilyController extends BaseApiController implements HasMiddleware
     /**
      * PUT /api/v1/families/{id}
      */
-    public function update(UpdateFamilyRequest $request, int $id): JsonResponse
+    public function update(UpdateFamilyRequest $request, string $id): JsonResponse
     {
         $family = Family::findOrFail($id);
         $family->update($request->validated());
@@ -136,7 +168,7 @@ class FamilyController extends BaseApiController implements HasMiddleware
     /**
      * DELETE /api/v1/families/{id}
      */
-    public function destroy(int $id): JsonResponse
+    public function destroy(string $id): JsonResponse
     {
         $family = Family::findOrFail($id);
         $family->delete();
@@ -147,7 +179,7 @@ class FamilyController extends BaseApiController implements HasMiddleware
     /**
      * POST /api/v1/families/{id}/members
      */
-    public function assignMember(AssignMemberRequest $request, int $id): JsonResponse
+    public function assignMember(AssignMemberRequest $request, string $id): JsonResponse
     {
         $family = Family::findOrFail($id);
         $data   = $request->validated();
@@ -180,7 +212,7 @@ class FamilyController extends BaseApiController implements HasMiddleware
     /**
      * DELETE /api/v1/families/{id}/members/{memberId}
      */
-    public function removeMember(int $id, int $memberId): JsonResponse
+    public function removeMember(string $id, string $memberId): JsonResponse
     {
         $family = Family::findOrFail($id);
 
@@ -205,7 +237,7 @@ class FamilyController extends BaseApiController implements HasMiddleware
     /**
      * GET /api/v1/families/{id}/giving
      */
-    public function giving(int $id): JsonResponse
+    public function giving(string $id): JsonResponse
     {
         $family = Family::with(['members'])->findOrFail($id);
         $year   = now()->year;

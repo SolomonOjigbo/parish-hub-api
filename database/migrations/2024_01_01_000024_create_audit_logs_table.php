@@ -9,21 +9,30 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('audit_logs', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->string('action');
             $table->string('auditable_type');
-            $table->unsignedBigInteger('auditable_id');
+            #$table->unsignedBigInteger('auditable_id');
+            $table->uuid('auditable_id');
             $table->json('old_values')->nullable();
             $table->json('new_values')->nullable();
             $table->string('ip_address')->nullable();
             $table->string('user_agent')->nullable();
             $table->timestamps();
 
-            if (Schema::hasTable('users')) {
-                $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
-            } else {
-                $table->unsignedBigInteger('user_id')->nullable();
-            }
+            // ✅ FIXED USER RELATION (UUID)
+            $table->uuid('user_id')->nullable();
+            $table->foreign('user_id')
+                ->references('id')
+                ->on('users')
+                ->nullOnDelete();
+
+            // if (Schema::hasTable('users')) {
+            //     $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            // } else {
+            //     $table->unsignedBigInteger('user_id')->nullable();
+            // }
         });
     }
 

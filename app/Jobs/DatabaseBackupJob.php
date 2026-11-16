@@ -15,7 +15,7 @@ class DatabaseBackupJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function handle(): void
+    public function handleOld(): void
     {
         $dbConnection = config('database.default');
         $filename = 'parishhub-backup-' . now()->format('Y-m-d-His') . '.sql.gz';
@@ -52,6 +52,53 @@ class DatabaseBackupJob implements ShouldQueue
             throw $e;
         }
     }
+    public function handle(): void
+    {
+        $disk = Storage::disk('public');
+
+        $filename = 'parishhub-backup-' . now()->format('Y-m-d-His') . '.sql.gz';
+        $directory = 'backups';
+        $backupPath = $directory . '/' . $filename;
+
+        // ✅ Ensure directory exists
+        if (!$disk->exists($directory)) {
+            $disk->makeDirectory($directory);
+        }
+
+        try {
+            // ✅ Full physical path (for dump command)
+            $fullPath = $disk->path($backupPath);
+
+            if (config('database.default') === 'sqlite') {
+                $this->backupSQLite($fullPath);
+            } else {
+                $this->backupMySQL($fullPath);
+            }
+
+            // ✅ Keep only last 8 backups
+            $this->cleanupOldBackups();
+
+            // ✅ Audit log
+            AuditLog::create([
+                'action' => 'database_backup',
+                'user_id' => 1,
+                'auditable_type' => 'Database',
+                'auditable_id' => null,
+                'old_values' => [],
+                'new_values' => ['filename' => $filename],
+            ]);
+
+            Log::info('Database backup completed successfully', [
+                'filename' => $filename
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Database backup failed', [
+                'error' => $e->getMessage()
+            ]);
+
+            throw $e;
+        }
+    }
 
     protected function backupSQLite(string $backupPath): void
     {
@@ -82,7 +129,7 @@ class DatabaseBackupJob implements ShouldQueue
         }
     }
 
-    protected function cleanupOldBackups(): void
+    protected function cleanupOldBackupsOld(): void
     {
         $files = Storage::disk('public')->files('backups');
         $backups = collect($files)->sortByDesc(function ($file) {
@@ -92,6 +139,30 @@ class DatabaseBackupJob implements ShouldQueue
         // Keep only last 8 backups
         $backups->slice(8)->each(function ($file) {
             Storage::disk('public')->delete($file);
+        });
+    }
+
+    protected function cleanupOldBackups(): void
+    {
+        $directory = public_path('upload/backups');
+
+        if (!file_exists($directory)) {
+            return; // nothing to clean
+        }
+
+        // Get all files in directory
+        $files = collect(glob($directory . '/*.gz'));
+
+        // Sort by last modified (newest first)
+        $backups = $files->sortByDesc(function ($file) {
+            return filemtime($file);
+        })->values();
+
+        // Keep only last 8 backups
+        $backups->skip(8)->each(function ($file) {
+            if (file_exists($file)) {
+                unlink($file);
+            }
         });
     }
 }

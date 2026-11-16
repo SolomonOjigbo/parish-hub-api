@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Member;
 use App\Observers\MemberObserver;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Schema;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,5 +23,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Member::observe(MemberObserver::class);
+        Schema::defaultStringLength(191);
     }
 }

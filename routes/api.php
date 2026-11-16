@@ -33,6 +33,9 @@ use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\PortalController;
 use App\Http\Controllers\Api\V1\PublicController;
+use Illuminate\Http\Request;
+use Tymon\JWTAuth\Facades\JWTAuth;
+use App\Http\Controllers\HelloController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,6 +45,9 @@ use App\Http\Controllers\Api\V1\PublicController;
 */
 
 Route::prefix('v1')->group(function () {
+
+Route::get('hello', [HelloController::class, 'index']);
+Route::get('/up', [HelloController::class, 'health']);
 
     // ── PUBLIC ROUTES (no auth required) ──────────────────────────────
     Route::prefix('public')->group(function () {
@@ -56,7 +62,7 @@ Route::prefix('v1')->group(function () {
         Route::post('forgot-password',[AuthController::class, 'forgotPassword']);
         Route::post('reset-password', [AuthController::class, 'resetPassword']);
 
-        Route::middleware('auth:sanctum')->group(function () {
+        Route::middleware('auth:api')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::get('me',      [AuthController::class, 'me']);
             Route::put('me/password', [AuthController::class, 'changePassword']);
@@ -68,7 +74,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ── ALL PROTECTED ROUTES ──────────────────────────────────────────
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware('auth:api')->group(function () {
 
         // Members — static routes BEFORE apiResource so /members/export
         // is not captured by /members/{id}.
@@ -84,6 +90,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('members', MemberController::class);
 
         // Families
+        Route::get('families',                  [FamilyController::class, 'index']);
         Route::get('families/{id}/giving',                  [FamilyController::class, 'giving']);
         Route::post('families/{id}/members',                [FamilyController::class, 'assignMember']);
         Route::delete('families/{id}/members/{memberId}',   [FamilyController::class, 'removeMember']);

@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
+            #$table->id();
+            $table->uuid('id')->primary();
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
@@ -38,11 +40,41 @@ return new class extends Migration
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
+            // $table->foreignId('user_id')->nullable()->index();
+            $table->uuid('user_id')->nullable()->index();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');
             $table->integer('last_activity')->index();
+
+            $table->foreign('user_id')
+                ->references('id')
+                ->on('users')
+                ->onDelete('cascade');
+        });
+
+
+        Schema::create('email_otps', function (Blueprint $table) {
+            $table->id();
+            $table->uuid('user_id');
+            $table->string('email');
+            $table->string('otp');
+            $table->timestamp('expires_at');
+            $table->integer('attempts')->default(0);
+            $table->boolean('used')->default(false);
+            $table->timestamps();
+
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+        });
+
+
+
+        Schema::create('email_logs', function (Blueprint $table) {
+            $table->id();
+            $table->string('email');
+            $table->string('type'); // otp, welcome, reset
+            $table->text('message')->nullable();
+            $table->timestamps();
         });
     }
 
@@ -54,5 +86,7 @@ return new class extends Migration
         Schema::dropIfExists('users');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('email_otps');
+        Schema::dropIfExists('email_logs');
     }
 };

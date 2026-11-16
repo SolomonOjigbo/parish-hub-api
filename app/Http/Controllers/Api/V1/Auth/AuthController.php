@@ -13,125 +13,142 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Tymon\JWTAuth\Facades\JWTAuth;
+
 
 class AuthController extends BaseApiController
 {
     /**
      * Authenticate a user and return a Sanctum token.
      */
-    public function login(LoginRequest $request): JsonResponse
-    {
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            return $this->error('Invalid credentials', 401);
-        }
+ public function login(LoginRequest $request): JsonResponse
+{
+    $credentials = $request->only('email', 'password');
 
-        /** @var User $user */
-        $user = Auth::user();
-
-        if (!$user->is_active) {
-            Auth::logout();
-
-            return $this->error('Account disabled. Contact admin.', 403);
-        }
-
-        $user->update(['last_login_at' => now()]);
-
-        $token = $user->createToken('parishhub-app')->plainTextToken;
-
-        $user->load('roles', 'permissions');
-
-        return $this->success([
-            'token' => $token,
-            'user' => new UserResource($user),
-        ], 'Login successful');
+    if (!$token = JWTAuth::attempt($credentials)) {
+        return $this->error('Invalid credentials', 401);
     }
+
+    $user = JWTAuth::user();
+
+    if (!$user->is_active) {
+        JWTAuth::invalidate($token);
+        return $this->error('Account disabled. Contact admin.', 403);
+    }
+
+    $user->update(['last_login_at' => now()]);
+
+    return $this->success([
+        'token' => $token,
+        'user' => new UserResource($user->load('roles')),
+    ], 'Login successful');
+}
+    
 
     /**
      * Revoke the current access token.
      */
-    public function logout(Request $request): JsonResponse
-    {
-        $request->user()->currentAccessToken()->delete();
+ 
+    public function logout(): JsonResponse
+{
+    JWTAuth::invalidate(JWTAuth::getToken());
 
-        return $this->success(null, 'Logged out successfully');
-    }
+    return $this->success(null, 'Logged out successfully');
+}
 
     /**
      * Return the authenticated user with roles and permissions.
      */
-    public function me(Request $request): JsonResponse
-    {
-        /** @var User $user */
-        $user = $request->user()->load('roles', 'permissions');
+   
+    public function me(): JsonResponse
+{
+    $user = auth()->user()->load('roles', 'permissions');
 
-        return $this->success(new UserResource($user));
-    }
+    return $this->success(new UserResource($user));
+}
 
     /**
      * Change the authenticated user's password.
      */
+
     public function changePassword(Request $request): JsonResponse
-    {
-        $request->validate([
-            'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
+{
+    $request->validate([
+        'current_password' => ['required'],
+        'password' => ['required', 'min:8', 'confirmed'],
+    ]);
 
-        /** @var User $user */
-        $user = $request->user();
+    $user = auth()->user();
 
-        if (!Hash::check($request->current_password, $user->password)) {
-            return $this->error('Current password is incorrect', 422);
-        }
-
-        $user->update([
-            'password' => Hash::make($request->password),
-            'must_change_password' => false,
-        ]);
-
-        $user->tokens()->delete();
-
-        $token = $user->createToken('parishhub-app')->plainTextToken;
-
-        $user->load('roles', 'permissions');
-
-        return $this->success([
-            'token' => $token,
-            'user' => new UserResource($user),
-        ], 'Password changed successfully');
+    if (!Hash::check($request->current_password, $user->password)) {
+        return $this->error('Current password is incorrect', 422);
     }
+
+    $user->update([
+        'password' => Hash::make($request->password),
+        'must_change_password' => false,
+    ]);
+
+    $token = JWTAuth::fromUser($user);
+
+    return $this->success([
+        'token' => $token,
+        'user' => new UserResource($user),
+    ], 'Password changed successfully');
+}
 
     /**
      * Send a password reset link to the given email.
      */
-    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
-    {
-        Password::sendResetLink($request->only('email'));
+   
 
-        return $this->success(null, 'If this email exists, a reset link has been sent.');
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+{
+    $status = Password::sendResetLink(
+        $request->only('email')
+    );
+
+    if ($status !== Password::RESET_LINK_SENT) {
+        return $this->error(__($status), 422);
     }
+
+    return $this->success(
+        null,
+        'If this email exists, a reset link has been sent.'
+    );
+}
 
     /**
      * Reset the user's password using a valid token.
      */
+
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
-    {
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password): void {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'must_change_password' => false,
-                ])->save();
+{
+    $status = Password::reset(
+        $request->only('email', 'password', 'password_confirmation', 'token'),
+        function (User $user, string $password) {
 
-                $user->tokens()->delete();
-            }
-        );
+            // update password
+            $user->forceFill([
+                'password' => Hash::make($password),
+                'must_change_password' => false,
+            ])->save();
 
-        if ($status !== Password::PASSWORD_RESET) {
-            return $this->error(__($status), 422);
+            // ❌ REMOVE SANCTUM LOGIC
+            // $user->tokens()->delete();
+
+            // OPTIONAL: invalidate JWT sessions if user already logged in
+            JWTAuth::invalidate(JWTAuth::getToken());
         }
+    );
 
-        return $this->success(null, __($status));
+    if ($status !== Password::PASSWORD_RESET) {
+        return $this->error(__($status), 422);
     }
+
+    return $this->success(
+        null,
+        'Password has been reset successfully.'
+    );
+}
 }
